@@ -9,7 +9,7 @@
 
 You know `strings(1)` — the unix tool that pulls human-readable text out of a
 binary? This site inverts it. The whole page renders as one giant Notepad
-window displaying `a1bin.bin`: a wall of mojibake (à¹â°êý, ±²³, letter runs
+window displaying `a1.bin`: a wall of mojibake (à¹â°êý, ±²³, letter runs
 like `IIJJGGFFEEDDCCBBAA`, `PK\x03\x04` zip magic) with the actual content —
 name, bio, links — embedded as readable *strings* inside the noise, exactly
 like real binary dumps where fragments of text leak through.
@@ -133,7 +133,7 @@ instead of animating UI.
 One route. One window. Content is ordered like a binary's layout:
 
 ```
-┌─ title bar ───── a1bin.bin - Notepad ────────── _ ▢ ✕ ┐
+┌─ title bar ───── a1.bin - Notepad ────────── _ ▢ ✕ ┐
 │ File  Edit  Format  View  Help                        │
 │ A1BINDATA  |  v2.0.4                    header record │
 │ <mojibake>                                            │
@@ -175,7 +175,7 @@ Everything functional, nothing decorative-only:
 | **Edit menu**    | `Copy` copies page URL. `Select All` selects the document.      |
 |                  | `Time/Date` inserts current timestamp at caret — real Notepad   |
 |                  | menu items, real behavior.                                      |
-| **File menu**    | `Save As…` downloads the document as `a1bin.bin` (real bytes).  |
+| **File menu**    | `Save As…` downloads the document as `a1.bin` (real bytes).  |
 |                  | `Page Setup…`, `Print…` → stub dialogs phase 2. `Exit` → closes |
 |                  | window or shows fake "cannot close" phase 2.                    |
 | **View menu**    | `Status Bar ✓` toggles it. Phase 2: `Hex View` switches the     |
@@ -264,7 +264,7 @@ a1bin.dev/
 
 ```js
 export const SITE = {
-  file: { name: "a1bin.bin", version: "v2.0.4", magic: "A1BINDATA" },
+  file: { name: "a1.bin", version: "v2.0.4", magic: "A1BINDATA" },
   strings: [
     { id: "name",   text: "albin shrestha — seattle, wa" },
     { id: "bio",    text: "building software that …" },       // TBD copy
@@ -292,7 +292,7 @@ Word Wrap toggle · Edit>Copy / Edit>Select All / Insert Time-Date ·
 favicon · README.
 
 **P1 — chrome comes alive**
-File>Save As (downloads real `a1bin.bin`) · View>Status Bar toggle ·
+File>Save As (downloads real `a1.bin`) · View>Status Bar toggle ·
 About/Properties dialogs · draggable window + minimize-to-taskbar strip.
 
 **P2 — second lens + deploy**

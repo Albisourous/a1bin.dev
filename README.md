@@ -1,7 +1,7 @@
 # a1bin.dev
 
 Personal site for Albin Shrestha. The whole page is a Windows-classic
-Notepad window displaying `a1bin.bin` — a corrupted binary whose printable
+Notepad window displaying `a1.bin` — a corrupted binary whose printable
 strings are the site content. Boot intertitle is a Lily Chou-Chou-style
 ghost-text cut; the desktop wallpaper is pure-CSS Frutiger Aero.
 

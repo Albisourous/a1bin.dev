@@ -2,12 +2,12 @@
 
 export const SITE = {
   file: {
-    name: "a1bin.bin",
+    name: "a1.bin",
     magic: "A1BINDATA",
     version: "v2.0.4",
   },
 
-  windowTitle: "a1bin.bin - Notepad",
+  windowTitle: "a1.bin - Notepad",
 
   // Deterministic document seed — same file on every visit.
   seed: 0xa1b1,
@@ -46,7 +46,7 @@ export const SITE = {
 
   // Ghost lines typed on the boot intertitle (Lily Chou-Chou layer).
   intertitle: [
-    "opening a1bin.bin …",
+    "opening a1.bin …",
     "the file is in an unsupported format.",
     "showing raw text below.",
   ],

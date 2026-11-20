@@ -137,7 +137,7 @@ const Document = forwardRef(function Document(
       className={`document${wordWrap ? " document--wrap" : ""}`}
       onMouseDown={placeCaret}
       role="document"
-      aria-label="a1bin.bin — corrupted binary, printable strings"
+      aria-label="a1.bin — corrupted binary, printable strings"
       tabIndex={0}
     >
       <div className="document__body">{rendered}</div>
