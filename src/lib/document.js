@@ -53,7 +53,7 @@ export function buildDocument(seed = SITE.seed) {
 
   // Pad out to target size, then the EOF record.
   pushNoise(Math.max(0, total - lines.length - 1));
-  lines.push({ type: "marker", text: "········ EOF ········" });
+  lines.push({ type: "marker", text: SITE.eofMarker });
 
   return lines;
 }

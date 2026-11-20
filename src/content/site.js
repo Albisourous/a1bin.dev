@@ -3,8 +3,8 @@
 export const SITE = {
   file: {
     name: "a1.bin",
-    magic: "A1BINDATA",
-    version: "v2.0.4",
+    magic: "A1.STORE",
+    version: "ai memory bank",
   },
 
   windowTitle: "a1.bin - Notepad",
@@ -18,43 +18,45 @@ export const SITE = {
     width: 190,
   },
 
-  // The printable strings recovered from the binary. Rendered readable
+  // The printable strings recovered from AI storage. Rendered readable
   // inside the noise; `href` makes a string a link.
   strings: [
     {
       id: "name",
-      text: "albin shrestha — seattle, wa",
+      text: "mem 0x00 · albin shrestha — seattle, wa",
     },
     {
       id: "bio",
-      text: "writes software. file under construction — more strings soon.",
+      text: "mem 0x01 · writes software. most of storage still empty.",
     },
     {
       id: "github",
-      text: "github.com/Albisourous",
+      text: "ptr · github.com/Albisourous",
       href: "https://github.com/Albisourous",
     },
     {
       id: "x",
-      text: "x.com/albinshr",
+      text: "ptr · x.com/albinshr",
       href: "https://x.com/albinshr",
     },
   ],
 
   // Marker printed before the link strings, like a section in a dump.
-  stringsMarker: "§ strings",
+  stringsMarker: "§ recoverable strings",
+
+  eofMarker: "········ end of recoverable memory ········",
 
   // Ghost lines typed on the boot intertitle (Lily Chou-Chou layer).
   intertitle: [
-    "opening a1.bin …",
-    "the file is in an unsupported format.",
-    "showing raw text below.",
+    "mounting a1.bin …",
+    "ai storage detected.",
+    "integrity check failed — recovering printable strings.",
   ],
 
   about: [
     "a1bin.dev",
     "",
-    "file type: corrupted binary",
+    "file type: ai storage (corrupt)",
     "strings recovered: yes",
     "owner: albin shrestha",
   ],
