@@ -9,29 +9,60 @@
 
 // ---------------------------------------------------------------------------
 // Desktop — Frutiger Aero wallpaper (docs/DESIGN.md §2). Pure CSS/SVG.
+// Layered top→bottom: gloss, aurora, clouds, hills, meadow, sky.
 // ---------------------------------------------------------------------------
 
 body {
   min-height: 100vh;
   overflow: hidden;
   background:
-    // glass sheen across the sky
+    // glass gloss bloom
     radial-gradient(
-      ellipse 90% 35% at 30% 10%,
-      rgba(255, 255, 255, 0.55),
-      transparent 60%
+      ellipse 55% 22% at 30% 6%,
+      rgba(255, 255, 255, 0.5),
+      transparent 65%
     ),
-    // mountain ridges
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M0 300 L180 120 L340 260 L520 80 L700 240 L880 140 L1050 260 L1200 180 V400 H0 Z' fill='%234A6B8A' opacity='.8'/%3E%3Cpath d='M0 340 L240 200 L460 330 L680 190 L900 320 L1200 240 V400 H0Z' fill='%233E5A74' opacity='.65'/%3E%3C/svg%3E")
-      bottom / cover no-repeat,
-    // meadow
+    // aurora arc
     radial-gradient(
-      ellipse 130% 55% at 50% 115%,
-      var(--aero-field-b),
-      var(--aero-field-a) 70%
+      ellipse 120% 45% at 75% 18%,
+      rgba(150, 225, 255, 0.4),
+      transparent 62%
+    ),
+    // soft clouds
+    radial-gradient(
+      ellipse 16% 8% at 22% 26%,
+      rgba(255, 255, 255, 0.75),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 20% 9% at 68% 16%,
+      rgba(255, 255, 255, 0.6),
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 11% 6% at 86% 33%,
+      rgba(255, 255, 255, 0.5),
+      transparent 70%
+    ),
+    // rolling hills — smooth ridges, three depths
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 460' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M0 300 Q200 180 420 260 T840 240 T1440 280 V460 H0Z' fill='%236B8BB0' opacity='.5'/%3E%3Cpath d='M0 350 Q260 240 520 330 T1040 310 T1440 350 V460 H0Z' fill='%234E7297' opacity='.65'/%3E%3Cpath d='M0 410 Q320 330 700 400 T1440 390 V460 H0Z' fill='%233A5C7C' opacity='.85'/%3E%3C/svg%3E")
+      bottom center / 100% auto no-repeat,
+    // meadow
+    linear-gradient(
+      to top,
+      #35701f 0%,
+      var(--aero-field-a) 16%,
+      var(--aero-field-b) 30%,
+      transparent 42%
     ),
     // sky
-    linear-gradient(var(--aero-sky-a), var(--aero-sky-b) 55%);
+    linear-gradient(
+      180deg,
+      #1d7ec4 0%,
+      var(--aero-sky-a) 32%,
+      var(--aero-sky-b) 62%,
+      #eaf6fc 70%
+    );
   background-color: var(--aero-sky-b);
 }
 
@@ -58,7 +89,7 @@ body {
 }
 
 // ---------------------------------------------------------------------------
-// Window
+// Window — pure chrome, no behavior
 // ---------------------------------------------------------------------------
 
 .desktop {
@@ -66,29 +97,6 @@ body {
   display: grid;
   place-items: center;
   padding: s.$space-5;
-
-  &__icon {
-    position: absolute;
-    top: s.$space-5;
-    left: s.$space-5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: s.$space-1;
-    width: 76px;
-    padding: s.$space-2;
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-    @include ty.chrome-text;
-    text-align: center;
-    cursor: pointer;
-
-    &:focus,
-    &:focus-visible {
-      outline: 1px dotted #fff;
-      outline-offset: 2px;
-    }
-  }
 }
 
 .window {
@@ -101,12 +109,6 @@ body {
   box-shadow:
     0 18px 50px rgba(20, 40, 70, 0.45),
     0 0 0 1px rgba(0, 0, 0, 0.25);
-
-  &--max {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-  }
 }
 
 // Title bar ---------------------------------------------------------------
@@ -127,10 +129,6 @@ body {
   color: var(--title-text);
   user-select: none;
   flex: none;
-
-  .window--max & {
-    border-radius: 0;
-  }
 
   &__icon {
     width: 16px;
@@ -170,21 +168,9 @@ body {
     );
     font-size: 10px;
     line-height: 1;
-    cursor: default;
 
-    &:hover {
-      filter: brightness(1.2);
-    }
-    &:active {
-      filter: brightness(0.85);
-    }
     &--close {
-      background: linear-gradient(
-        to bottom,
-        #f7a68c,
-        #e0603c 50%,
-        #c7431f
-      );
+      background: linear-gradient(to bottom, #f7a68c, #e0603c 50%, #c7431f);
     }
   }
 }
@@ -192,7 +178,6 @@ body {
 // Menu bar -----------------------------------------------------------------
 
 .menubar {
-  position: relative;
   display: flex;
   align-items: stretch;
   height: ch.$menubar-h;
@@ -206,57 +191,10 @@ body {
     display: flex;
     align-items: center;
 
-    &:hover,
-    &--open {
+    &:hover {
       background: var(--select-bg);
       color: var(--select-text);
     }
-  }
-}
-
-.menu {
-  position: absolute;
-  top: ch.$menubar-h;
-  min-width: ch.$menu-min-w;
-  background: var(--chrome-face);
-  @include b.raised;
-  padding: 2px;
-  z-index: 20;
-
-  &__item {
-    @include ty.chrome-text;
-    display: flex;
-    justify-content: space-between;
-    gap: s.$space-5;
-    width: 100%;
-    padding: s.$space-1 s.$space-4 s.$space-1 s.$space-5;
-    text-align: left;
-    position: relative;
-
-    &:hover:not(:disabled) {
-      background: var(--select-bg);
-      color: var(--select-text);
-    }
-    &:disabled {
-      color: var(--ink-dim);
-    }
-  }
-
-  &__check {
-    position: absolute;
-    left: s.$space-2;
-  }
-
-  &__sep {
-    height: 1px;
-    margin: 2px s.$space-1;
-    background: var(--chrome-shadow);
-    border-bottom: 1px solid var(--chrome-hilight);
-  }
-
-  &__shortcut {
-    color: inherit;
-    opacity: 0.75;
   }
 }
 
@@ -268,18 +206,10 @@ body {
   background: var(--paper);
   @include b.sunken;
   overflow: auto;
-  position: relative;
   cursor: text;
   @include sb.classic-scrollbar;
   @include ty.doc-text;
   color: var(--corrupt-soft);
-
-  &--wrap {
-    .document__line {
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-  }
 
   &__line {
     white-space: pre;
@@ -312,10 +242,11 @@ body {
 }
 
 .caret {
-  position: absolute;
-  width: 8px;
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
   background: var(--caret);
-  pointer-events: none;
+  vertical-align: text-bottom;
   animation: caret-blink 1.06s steps(1) infinite;
 }
 
@@ -375,55 +306,5 @@ body {
       var(--chrome-shadow) 86%,
       transparent 86%
     );
-  }
-}
-
-// Dialog ---------------------------------------------------------------------
-
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-}
-
-.dialog {
-  min-width: 300px;
-  background: var(--chrome-face);
-  @include b.raised;
-  @include ty.chrome-text;
-
-  &__title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 3px 3px 3px s.$space-2;
-    background: linear-gradient(
-      to bottom,
-      var(--title-grad-a),
-      var(--title-grad-b) 45%,
-      var(--title-grad-a)
-    );
-    color: var(--title-text);
-    font-weight: 700;
-  }
-
-  &__body {
-    padding: s.$space-4 s.$space-4 s.$space-3;
-    white-space: pre-wrap;
-  }
-
-  &__ok {
-    display: block;
-    margin: 0 auto s.$space-3;
-    min-width: 74px;
-    padding: s.$space-1 s.$space-4;
-    background: var(--chrome-face);
-    @include b.raised;
-
-    &:active {
-      @include b.pressed;
-    }
   }
 }

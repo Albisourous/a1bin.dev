@@ -57,13 +57,3 @@ export function buildDocument(seed = SITE.seed) {
 
   return lines;
 }
-
-export function documentText(lines) {
-  return lines
-    .map((l) => {
-      if (l.type === "noise") return l.text;
-      if (l.type === "marker") return l.text;
-      return (l.padBefore || "") + l.string.text + (l.padAfter || "");
-    })
-    .join("\n");
-}
