@@ -1,0 +1,31 @@
+@use "../tokens/chrome" as ch;
+@use "bevel" as b;
+
+// Windows-classic scrollbars: dithered track, raised thumb, no arrow
+// buttons in P0 (hidden — default buttons look wrong unstyled).
+@mixin classic-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: var(--chrome-face) var(--paper);
+
+  &::-webkit-scrollbar {
+    width: ch.$scrollbar-w;
+    height: ch.$scrollbar-w;
+  }
+  &::-webkit-scrollbar-track {
+    background: repeating-conic-gradient(
+        var(--chrome-face) 0% 25%,
+        var(--paper) 0% 50%
+      )
+      0 0 / 2px 2px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--chrome-face);
+    @include b.raised;
+  }
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+  &::-webkit-scrollbar-corner {
+    background: var(--chrome-face);
+  }
+}

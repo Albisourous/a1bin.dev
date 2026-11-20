@@ -1,0 +1,22 @@
+// Classic two-tone bevels drawn as inset shadows so they never affect layout.
+@mixin raised {
+  box-shadow:
+    inset 1px 1px 0 var(--chrome-hilight),
+    inset -1px -1px 0 var(--chrome-dkshadow),
+    inset 2px 2px 0 var(--chrome-face),
+    inset -2px -2px 0 var(--chrome-shadow);
+}
+
+@mixin sunken {
+  box-shadow:
+    inset -1px -1px 0 var(--chrome-hilight),
+    inset 1px 1px 0 var(--chrome-dkshadow),
+    inset -2px -2px 0 var(--chrome-face),
+    inset 2px 2px 0 var(--chrome-shadow);
+}
+
+@mixin pressed {
+  box-shadow:
+    inset 1px 1px 0 var(--chrome-dkshadow),
+    inset -1px -1px 0 var(--chrome-hilight);
+}

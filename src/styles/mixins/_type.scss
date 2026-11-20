@@ -1,0 +1,12 @@
+@use "../tokens/type" as t;
+
+@mixin doc-text {
+  font-family: t.$font-doc;
+  font-size: t.$size-doc;
+  line-height: t.$leading-doc;
+}
+
+@mixin chrome-text {
+  font-family: t.$font-chrome;
+  font-size: t.$size-chrome;
+}

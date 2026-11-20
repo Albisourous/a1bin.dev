@@ -1,0 +1,9 @@
+@use "../tokens/colors" as c;
+
+// Emit every token as a CSS custom property so chrome and JS can both
+// read the single source of truth.
+:root {
+  @each $name, $value in c.$colors {
+    --#{$name}: #{$value};
+  }
+}
