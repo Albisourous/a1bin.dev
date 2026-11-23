@@ -47,6 +47,10 @@ body {
   display: grid;
   grid-template-rows: 34px 1fr 24px;
   height: 100vh;
+  // Mobile Safari sizes vh to the large viewport (chrome hidden), which
+  // pushes the status bar under the browser toolbar. dvh tracks the
+  // actually-visible height; browsers without it keep the vh fallback.
+  height: 100dvh;
 }
 
 // Title bar ---------------------------------------------------------------
