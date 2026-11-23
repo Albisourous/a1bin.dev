@@ -23,6 +23,12 @@ export default function Metrics() {
   const { loaded, data } = state;
   const totals = data?.totals ?? {};
   const days = data?.days ?? [];
+  // run-ending mix — sorted desc so the dominant killer leads
+  const deaths = Object.entries(data?.deaths ?? {})
+    .map(([k, v]) => [k, Number(v) || 0])
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const deathTotal = deaths.reduce((s, [, v]) => s + v, 0);
   const dead = data && SERIES_KEYS.every((k) => !totals[k]);
   // trailing two weeks of the 30-day payload — a compact dot-grid, not
   // a full-width band of empty cells
@@ -54,6 +60,15 @@ export default function Metrics() {
           </div>
         ))}
       </div>
+      {deaths.length > 0 && (
+        <div className="metrics__deaths">
+          {METRICS.deathsTitle}
+          {" — "}
+          {deaths
+            .map(([k, v]) => `${k} ${v} · ${Math.round((v / deathTotal) * 100)}%`)
+            .join("  ·  ")}
+        </div>
+      )}
       <div className="metrics__rows">
         {SERIES_KEYS.map((k) => {
           const max = Math.max(...shown.map((d) => d[k] ?? 0));

@@ -72,18 +72,19 @@ export const trackVisit = () => {
 };
 
 // one countable interaction — terminal command, resume open, finished
-// snowboard run. No session guard: every press counts. Silent on
-// failure.
+// snowboard run. No session guard: every press counts. extra fields
+// ride along in the body (run sends its death cause as `why`).
+// Silent on failure.
 const EVENTS = new Set(["term", "resume", "run"]);
 // rapid accidental re-fires don't count — resume opens debounce at 4s
 const GAP_MS = { resume: 4000 };
 const lastAt = {};
-export const trackEvent = (name) => {
+export const trackEvent = (name, extra) => {
   if (!EVENTS.has(name) || analyticsOff()) return;
   const now = Date.now();
   if (lastAt[name] && now - lastAt[name] < (GAP_MS[name] ?? 0)) return;
   lastAt[name] = now;
-  post({ event: name });
+  post({ event: name, ...extra });
 };
 
 export const fetchMetrics = async () => {

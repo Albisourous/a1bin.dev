@@ -7,13 +7,18 @@
 //                                the uniques HLL), "term" (a terminal
 //                                command), "resume" (Resume.pdf opened),
 //                                "run" (a snowboard run reaching the
-//                                over screen). Chats are still counted
+//                                over screen — may carry `why`, the
+//                                death cause, counted in the
+//                                `metrics:deaths` hash and per-day
+//                                "d:*" fields). Chats are still counted
 //                                inside api/chat.js — the only event a
 //                                server endpoint sees for free.
 //
 //   { ok: true,
 //     totals: { visits, visitors, runs, players, chats },
-//     days: [{ d: "YYYY-MM-DD", visits, runs, chats }, …last 30, oldest first],
+//     days: [{ d: "YYYY-MM-DD", visits, runs, chats, deaths: {why: n} },
+//            …last 30, oldest first],
+//     deaths: { "wiped out": n, … } — all-time run endings,
 //     experiments: { <id>: { <arm>: count, … } } — live a/b assignments }
 //
 // POST also accepts { event: "assign", exp, arm } — one browser's draw in
@@ -39,9 +44,14 @@ import { EXPERIMENTS } from "../src/content/experiments.js";
 
 const TOTALS = "metrics:totals";
 const VISITORS = "metrics:visitors";
+const DEATHS = "metrics:deaths";
 const RIDERS = "snowboard:riders";
 const DAYS = 30;
 const DAY_TTL = 100 * 86400;
+
+// death causes the client can legitimately send — anything else is
+// ignored, not rejected (the run counter still bumps)
+const CAUSES = new Set(["wiped out", "stalled out", "out of time"]);
 
 const dayKey = (d) => `metrics:day:${d}`;
 const expKey = (id) => `metrics:exp:${id}`;
@@ -69,9 +79,10 @@ export default async function handler(req, res) {
       p.hgetall(TOTALS);
       p.hlen(RIDERS);
       p.pfcount(VISITORS);
+      p.hgetall(DEATHS);
       for (const d of names) p.hgetall(dayKey(d));
       for (const e of EXPERIMENTS) p.hgetall(expKey(e.id));
-      const [totals, players, visitors, ...rest] = await p.exec();
+      const [totals, players, visitors, deaths, ...rest] = await p.exec();
       const rows = rest.slice(0, names.length);
       const expRows = rest.slice(names.length);
       return res.status(200).json({
@@ -92,7 +103,13 @@ export default async function handler(req, res) {
           chats: num(rows[i], "chats"),
           term: num(rows[i], "term"),
           resume: num(rows[i], "resume"),
+          deaths: Object.fromEntries(
+            Object.entries(rows[i] ?? {})
+              .filter(([k]) => k.startsWith("d:"))
+              .map(([k, v]) => [k.slice(2), Number(v) || 0])
+          ),
         })),
+        deaths: deaths ?? {},
         experiments: Object.fromEntries(
           EXPERIMENTS.map((e, i) => [e.id, expRows[i] ?? {}])
         ),
@@ -105,7 +122,7 @@ export default async function handler(req, res) {
       if (BOT_UA.test(req.headers["user-agent"] ?? "")) {
         return res.status(200).json({ ok: true });
       }
-      const { event, id, exp, arm } = req.body ?? {};
+      const { event, id, exp, arm, why } = req.body ?? {};
       if (event === "assign") {
         // one arm of one live experiment — anything else is rejected,
         // so the registry bounds which keys a client can create
@@ -155,6 +172,14 @@ export default async function handler(req, res) {
         redis.hincrby(day, field, 1),
         redis.expire(day, DAY_TTL),
       ];
+      // a run's death cause — totals hash plus a per-day field so the
+      // dashboard can see whether the mix shifts after tuning changes
+      if (event === "run" && CAUSES.has(why)) {
+        writes.push(
+          redis.hincrby(DEATHS, why, 1),
+          redis.hincrby(day, `d:${why}`, 1)
+        );
+      }
       // visitor uuid → uniques HLL; a malformed id just skips the PFADD
       if (
         event === "visit" &&

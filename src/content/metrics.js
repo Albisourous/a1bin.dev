@@ -20,6 +20,7 @@ export const METRICS = {
     term: "term",
     resume: "resume",
   },
+  deathsTitle: "run endings",
   axisStart: (n) => `${n} days ago`,
   axisNote: "one cell = one day · brighter = busier",
   axisEnd: "today",

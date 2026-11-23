@@ -19,9 +19,10 @@ import { trackEvent } from "../../lib/metrics.js";
 // transition for a "perfect slide" — flat landings bounce, upslope
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
-// sun sets as you ride: 15 seconds of daylight, ringed-dot tokens on
-// the slope buy +1s each, and once night falls the next touchdown
-// ends it — the last flight gets to glide out. Hills steepen with
+// sun sets as you ride: 15 seconds of daylight, ringed-dot tokens
+// buy +1s each, and once night falls the next touchdown ends it —
+// the last flight gets to glide out. Tokens hang on jump arcs, so
+// daylight is earned by launching high at speed. Hills steepen with
 // distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
@@ -58,7 +59,6 @@ const CARVE = 14; // held-on-snow friction — digging in scrubs speed
 const V_MIN = 10;
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
-const DAY_CAP = 30; // pickups can only push the sun this far out
 const INTRO = 0.55; // lift ride before the run starts
 
 const fresh = () => {
@@ -104,15 +104,16 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
 const sunGap = (n) => Math.min(36, Math.round((29 + Math.floor(Math.max(0, n) / 45)) / 1.25));
-// token height at world x. Five of six sit on a jump arc: trace
-// the float ballistic off every crest in the run-up at a good rider
-// speed and keep the highest reach at x=n — grabbing one means
-// leaving the snow. The rest stay at boot-to-torso level.
+// token height at world x. Nearly all sit on a jump arc: trace the
+// float ballistic off every crest in the run-up at top rider speed
+// and keep the highest reach at x=n — grabbing one means leaving
+// the snow fast. A rare few stay at boot-to-torso level as a
+// breadcrumb for slower runs.
 const tokenY = (n, h, ph) => {
-  if ((h >> 7) % 6 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
+  if ((h >> 7) % 8 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
   let y = hill(n, ph) + 2.2;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
-    const v = 36;
+    const v = 55;
     const vy0 = Math.min(Math.max(0, slope(x0 - 0.6, ph)) * v * 1.25, 28);
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
@@ -207,7 +208,7 @@ function step(st, dt) {
     const py = tokenY(pn, ph, st.ph);
     if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
-      st.dayLen = Math.min(DAY_CAP, st.dayLen + 1);
+      st.dayLen += 1;
       st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
     }
   }
@@ -610,8 +611,9 @@ export default function Snowboard() {
         sim.current.recorded = true;
         setOver(true);
         // one finished run = one game played — counted when the over
-        // screen shows, so 0m slams and never-posted runs count too
-        trackEvent("run");
+        // screen shows, so 0m slams and never-posted runs count too.
+        // why feeds the death-mix counter in api/metrics.js
+        trackEvent("run", { why: sim.current.death });
         const d = Math.floor(sim.current.x - sim.current.start);
         if (d > best.current) {
           best.current = d;
