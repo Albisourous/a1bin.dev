@@ -66,14 +66,14 @@
     min-width: 0;
     display: grid;
     grid-template-columns: repeat(30, 1fr);
-    gap: 3px;
+    gap: 4px;
   }
 
   &__cell {
     aspect-ratio: 1;
     border-radius: 2px;
     background: var(--border);
-    opacity: 0.35;
+    opacity: 0.15;
 
     @media (prefers-reduced-motion: no-preference) {
       transition: opacity 120ms ease;
@@ -92,8 +92,27 @@
   }
 
   &__count {
+    width: 3em;
     color: var(--noise);
     text-align: right;
+  }
+
+  // Date axis under the grid — same flex structure as a series row so
+  // the track lines up with the cells.
+  &__axis {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5em;
+    margin-top: s.$space-2;
+  }
+
+  &__axis-track {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: space-between;
+    color: var(--noise);
+    font-size: 0.8em;
   }
 
   &__dim {

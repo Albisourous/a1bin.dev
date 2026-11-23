@@ -84,6 +84,15 @@ export default function Metrics() {
             </div>
           );
         })}
+        <div className="metrics__axis">
+          <span className="metrics__name" aria-hidden="true" />
+          <div className="metrics__axis-track">
+            <span>{METRICS.axisStart}</span>
+            <span>{METRICS.axisNote}</span>
+            <span>{METRICS.axisEnd}</span>
+          </div>
+          <span className="metrics__count" aria-hidden="true" />
+        </div>
       </div>
     </div>
   );

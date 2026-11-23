@@ -20,4 +20,7 @@ export const METRICS = {
     term: "term",
     resume: "resume",
   },
+  axisStart: "30 days ago",
+  axisNote: "one cell = one day · brighter = busier",
+  axisEnd: "today",
 };
