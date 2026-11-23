@@ -90,7 +90,7 @@ export const riderName = () => {
 // client-side gates are advisory, not enforcement.
 const BAD = /(fuck|shit|cunt|nigg|fag|whore|slut|dick|pussy|cock|bitch|ass|rape|nazi|hitler|kkk|porn|anal)/;
 export const cleanName = (v) => {
-  const n = v.trim().replace(/\s+/g, " ").slice(0, 12);
+  const n = v.trim().replace(/\s+/g, " ").slice(0, 10);
   if (!n) return null;
   if (!/^[a-z0-9 .'_-]+$/i.test(n)) return null;
   if (BAD.test(n.toLowerCase().replace(/[^a-z]/g, ""))) return null;
@@ -105,7 +105,9 @@ const perRider = (scores) => {
     const k = r.name ?? "";
     if (!best.has(k) || r.d > best.get(k).d) best.set(k, r);
   }
-  return [...best.values()].sort((a, b) => b.d - a.d);
+  return [...best.values()].sort(
+    (a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0)
+  );
 };
 
 // name the run — the rider key plus a name stamped onto board rows
@@ -137,29 +139,31 @@ export const postScore = (row) => {
 // to the top shown score. runD is the just-finished distance, slotted
 // in when the player somehow has no board row yet.
 export const shareText = (me, runD) => {
-  let board = loadScores();
-  let mine = board.findIndex((r) => (r.name ?? "rider") === me);
-  if (mine < 0 && runD != null) {
-    const row = { d: runD, name: me };
-    board = [...board, row].sort((a, b) => b.d - a.d);
-    mine = board.indexOf(row);
-  }
-  const start = Math.max(
-    0,
-    Math.min(mine < 0 ? 0 : mine - 1, board.length - 3)
-  );
+  const stored = loadScores();
+  // your row is the run you just finished — pull your stored best so
+  // you appear once, slotted where this run actually ranks. Sharing
+  // from the leaderboard file (no fresh run) falls back to the best.
+  const d = runD ?? stored.find((r) => (r.name ?? "rider") === me)?.d;
+  if (d == null) return `snowboard\n\nhttps://a1bin.dev/game`;
+  const row = { d, name: me, at: Date.now() };
+  const board = stored
+    .filter((r) => (r.name ?? "rider") !== me)
+    .concat(row)
+    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0));
+  const mine = board.indexOf(row);
+  const start = Math.max(0, Math.min(mine - 1, board.length - 3));
   const rows = board.slice(start, start + 3);
-  if (!rows.length) return `snowboard\n\nhttps://a1bin.dev/game`;
   const rankW = Math.max(...rows.map((_, i) => String(start + i + 1).length)) + 2;
-  const nameW = Math.max(...rows.map((r) => (r.name ?? "rider").length));
+  const nameW = Math.max(
+    ...rows.map((r) => (r.name ?? "rider").slice(0, 10).length)
+  );
   const maxD = rows[0].d;
   const lines = rows.map((r, i) => {
     const bar = "█".repeat(Math.max(1, Math.floor((r.d / maxD) * 15)));
     const tag = i === mine - start ? " ← me" : "";
-    return `${`[${start + i + 1}]`.padEnd(rankW)} ${(r.name ?? "rider").padEnd(nameW)} ${bar} ${r.d}m${tag}`;
+    return `${`[${start + i + 1}]`.padEnd(rankW)} ${(r.name ?? "rider").slice(0, 10).padEnd(nameW)} ${bar} ${r.d}m${tag}`;
   });
-  const beat = (mine >= 0 ? board[mine].d : runD) ?? rows[0].d;
-  return `snowboard\n\n${lines.join("\n")}\n\nbeat ${beat}m\n\nhttps://a1bin.dev/game`;
+  return `snowboard\n\n${lines.join("\n")}\n\nbeat ${d}m\n\nhttps://a1bin.dev/game`;
 };
 
 // native share sheet where the platform has one (iOS/macOS → iMessage

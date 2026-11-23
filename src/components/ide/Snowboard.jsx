@@ -735,7 +735,7 @@ export default function Snowboard() {
             onChange={(e) => setTouchBuf(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && commitTouch()}
             placeholder="name your run"
-            maxLength={16}
+            maxLength={10}
             enterKeyHint="done"
             spellCheck={false}
             autoCapitalize="off"

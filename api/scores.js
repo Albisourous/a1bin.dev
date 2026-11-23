@@ -20,7 +20,7 @@ const MAX_D = 999999;
 // gates are advisory, this is the enforcement copy. Keep in sync.
 const BAD = /(fuck|shit|cunt|nigg|fag|whore|slut|dick|pussy|cock|bitch|ass|rape|nazi|hitler|kkk|porn|anal)/;
 const cleanName = (v) => {
-  const n = String(v).trim().replace(/\s+/g, " ").slice(0, 12);
+  const n = String(v).trim().replace(/\s+/g, " ").slice(0, 10);
   if (!n) return null;
   if (!/^[a-z0-9 .'_-]+$/i.test(n)) return null;
   if (BAD.test(n.toLowerCase().replace(/[^a-z]/g, ""))) return null;
@@ -31,7 +31,7 @@ const board = async (redis) => {
   const all = await redis.hgetall(HASH);
   return Object.values(all ?? {})
     .map((v) => (typeof v === "string" ? JSON.parse(v) : v))
-    .sort((a, b) => b.d - a.d);
+    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0));
 };
 
 export default async function handler(req, res) {
