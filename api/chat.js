@@ -79,9 +79,9 @@ export default async function handler(req, res) {
   // Per-IP daily cap, only when the leaderboard's Upstash vars exist.
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (url && token) {
+  const redis = url && token ? new Redis({ url, token }) : null;
+  if (redis) {
     const ip = req.headers["x-forwarded-for"]?.split(",")[0].trim() || "anon";
-    const redis = new Redis({ url, token });
     const k = `chat:rl:${new Date().toISOString().slice(0, 10)}:${ip}`;
     const n = await redis.incr(k);
     if (n === 1) await redis.expire(k, 86400);
@@ -110,6 +110,17 @@ export default async function handler(req, res) {
     }
     const reply = (await r.json()).choices?.[0]?.message?.content?.trim();
     if (!reply) return res.status(502).json({ error: "groq returned no reply" });
+    // one answered user message = one chat — counted after a real Groq
+    // reply so rate-limited calls don't inflate it. Server-side, so
+    // ad-blockers can't suppress it; a metrics failure never breaks chat.
+    if (redis) {
+      try {
+        const day = `metrics:day:${new Date().toISOString().slice(0, 10)}`;
+        await redis.hincrby("metrics:totals", "chats", 1);
+        await redis.hincrby(day, "chats", 1);
+        await redis.expire(day, 100 * 86400);
+      } catch {}
+    }
     return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: `chat failed: ${e.message}` });
