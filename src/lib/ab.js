@@ -54,6 +54,35 @@ export const reportAssignment = (exp) => {
   post({ event: "assign", exp: exp.id, arm: arm.key });
 };
 
+// Session outcome — the deciding metric for every live experiment.
+// One beacon per page view, sent on exit: engaged milliseconds plus a
+// coarse interaction count (pointerdown + keydown), tagged with this
+// browser's arms. Retention is the primary read; interactions are the
+// fallback when a duration can't be trusted (killed tab, dead
+// battery). sendBeacon survives the unload; failures stay silent.
+let interactions = 0;
+const bump = () => interactions++;
+addEventListener("pointerdown", bump, { passive: true });
+addEventListener("keydown", bump);
+
+const bootAt = Date.now();
+let sent = false;
+const sendOutcome = () => {
+  if (sent || analyticsOff()) return;
+  sent = true;
+  const arms = {};
+  for (const e of EXPERIMENTS) {
+    const arm = variantFor(e);
+    if (arm) arms[e.id] = arm.key;
+  }
+  if (!Object.keys(arms).length) return;
+  post({ event: "session", arms, ms: Date.now() - bootAt, int: interactions });
+};
+addEventListener("pagehide", sendOutcome);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") sendOutcome();
+});
+
 // fire on import — the component chain loads this at boot, so every
 // visitor reports their draws without opening the tab
 import { EXPERIMENTS } from "../content/experiments.js";

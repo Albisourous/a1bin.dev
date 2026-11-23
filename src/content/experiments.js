@@ -14,7 +14,7 @@ export const EXPERIMENTS = [
     name: "landing view",
     status: "live",
     question: "what should greet you on load?",
-    metric: "files opened per visit",
+    metric: "seconds retained per session",
     variants: [
       { key: "a", label: "readme first", note: "README.md takes the focus" },
       { key: "b", label: "graph first", note: "the map is the front door" },
@@ -25,7 +25,7 @@ export const EXPERIMENTS = [
     name: "chat on boot",
     status: "live",
     question: "does an open chat panel invite conversation?",
-    metric: "messages sent per session",
+    metric: "seconds retained per session",
     variants: [
       { key: "a", label: "chat open", note: "panel visible on landing" },
       { key: "b", label: "chat closed", note: "rail icon only — pull to open" },

@@ -7,12 +7,14 @@ import { AB_COPY, EXPERIMENTS } from "../../content/experiments.js";
 export default function AB() {
   return (
     <div className="ab">
-      <div className="ab__title">{AB_COPY.title}</div>
-      <p className="ab__blurb">{AB_COPY.blurb}</p>
-      {EXPERIMENTS.map((e, i) => (
-        <Experiment key={e.id} e={e} n={i + 1} />
-      ))}
-      <div className="ab__foot">{AB_COPY.footnote}</div>
+      <div className="ab__inner">
+        <div className="ab__title">{AB_COPY.title}</div>
+        <p className="ab__blurb">{AB_COPY.blurb}</p>
+        {EXPERIMENTS.map((e, i) => (
+          <Experiment key={e.id} e={e} n={i + 1} />
+        ))}
+        <div className="ab__foot">{AB_COPY.footnote}</div>
+      </div>
     </div>
   );
 }

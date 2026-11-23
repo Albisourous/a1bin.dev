@@ -18,7 +18,11 @@
 //
 // POST also accepts { event: "assign", exp, arm } — one browser's draw in
 // a live experiment, validated against the registry in
-// src/content/experiments.js and counted in hash `metrics:exp:<id>`.
+// src/content/experiments.js and counted in hash `metrics:exp:<id>` —
+// and { event: "session", arms: {<exp>: <arm>}, ms, int } — the exit
+// beacon. Per arm it accumulates `<arm>:ms` (total engaged ms),
+// `<arm>:int` (total interactions) and `<arm>:sess` (beacon count), so
+// avg retention = ms/sess and the fallback read is int/sess.
 //
 // Storage: hash `metrics:totals` (visits/runs/chats fields), HyperLogLog
 // `metrics:visitors` (unique visitor ids), per-day hash
@@ -110,6 +114,33 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "bad assignment" });
         }
         await redis.hincrby(expKey(e.id), arm, 1);
+        return res.status(200).json({ ok: true });
+      }
+      if (event === "session") {
+        const { arms, ms, int } = req.body;
+        const dur = Number(ms);
+        const acts = Number(int);
+        if (
+          !arms || typeof arms !== "object" ||
+          !(dur > 0 && dur <= 8 * 3600e3) ||
+          !(acts >= 0 && acts <= 1e6)
+        ) {
+          return res.status(400).json({ error: "bad session" });
+        }
+        const writes = [];
+        for (const [exp, key] of Object.entries(arms)) {
+          const e = EXPERIMENTS.find((x) => x.id === exp);
+          if (e?.status !== "live" || !e.variants.some((v) => v.key === key))
+            continue;
+          writes.push(
+            redis.hincrby(expKey(e.id), `${key}:ms`, Math.round(dur)),
+            redis.hincrby(expKey(e.id), `${key}:int`, Math.round(acts)),
+            redis.hincrby(expKey(e.id), `${key}:sess`, 1)
+          );
+        }
+        if (!writes.length)
+          return res.status(400).json({ error: "bad session" });
+        await Promise.all(writes);
         return res.status(200).json({ ok: true });
       }
       // client-beaconed counters — "visit" is the only one that carries
