@@ -70,6 +70,14 @@ for (const [name, lines] of Object.entries(contents)) {
   );
 }
 
+// URL per file — basename → site-relative path with the .txt suffix
+// dropped, so deep links read /snowboard/game, /README.md, /Resume.pdf.
+const urls = {};
+for (const path of [...Object.keys(raw), ...Object.keys(pdfRaw)]) {
+  const rel = path.replace("./site/", "");
+  urls[rel.split("/").pop()] = rel.replace(/\.txt$/, "");
+}
+
 // `help` output — seeds the terminal scrollback and answers the live command.
 const termHelp =
   "ls · cat <file> · open <file> · whoami · pwd · echo · clear";
@@ -101,6 +109,10 @@ export const SITE = {
   files: [root],
 
   contents,
+
+  // Basename → deep-link path (see `urls` above). Editor file-links
+  // href these; App.jsx boot resolves the same paths back to files.
+  urls,
 
   // Binary files by filename → asset URL. Explorer lists them; opening
   // one renders a PDF viewer tab, not text.
@@ -141,7 +153,7 @@ export const SITE = {
     { role: "user", text: "what are you working on right now?" },
     {
       role: "agent",
-      text: "working on connecting this chat to my phone :)",
+      text: "working on improving this chat with ai-albin :)",
     },
   ],
 

@@ -26,7 +26,7 @@ function Inline({ text, onOpen }) {
       out.push(
         <a
           key={key++}
-          href={`/${encodeURIComponent(name)}`}
+          href={`/${encodeURI(SITE.urls[name] ?? name)}`}
           onClick={(e) => {
             e.preventDefault();
             onOpen?.(name);

@@ -25,14 +25,18 @@ function useMedia(query) {
   return m;
 }
 
-// Deep link — /snowboard (or any explorer file name) boots straight
-// into that tab instead of the default landing view.
+// Deep link — /README.md, /snowboard/game, or any explorer file name
+// (.txt may be dropped) boots straight into that tab instead of the
+// default landing view.
 const boot = (() => {
-  const name = location.pathname.split("/").filter(Boolean).pop() ?? "";
+  const name = decodeURIComponent(
+    location.pathname.split("/").filter(Boolean).pop() ?? ""
+  );
   if (name === "snowboard") return SITE.gameFile;
-  return SITE.contents[name] || SITE.pdfs[name] || name === SITE.graphTab
-    ? name
-    : null;
+  const file = [name, `${name}.txt`].find(
+    (f) => SITE.contents[f] || SITE.pdfs[f]
+  );
+  return file ?? (name === SITE.graphTab ? name : null);
 })();
 
 export default function App() {

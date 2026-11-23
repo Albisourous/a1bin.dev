@@ -68,6 +68,9 @@ bottom panels.
   hub center, its links on an inner ring, the rest outer.
 - `SITE.gameFile` — `snowboard/game.txt` is a real file in the tree but
   its tab renders an ASCII game (hold SPACE to dive) instead of text.
+- `SITE.urls` — basename → deep-link path (.txt dropped). Any file's
+  URL boots straight into its tab: /README.md, /snowboard/game.
+  vercel.json rewrites non-file paths to index.html so prod agrees.
 
 ## 5. Components
 
