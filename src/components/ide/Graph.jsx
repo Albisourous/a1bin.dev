@@ -31,20 +31,79 @@ function build() {
 const G = build();
 
 const radius = (n) => (n === G.hub ? 4.6 : 2.6);
-const DRAG_MAX = 10; // how far a node can be pulled from its slot
+// Invisible hit ring around each dot, and the per-frame ease factor for
+// the magnetic pull. Sizes here are viewBox units (~5 per screen px).
+const HIT = 6;
+const LERP = 0.16;
+// Drag bounds (viewBox is -62..62). y stops higher so labels stay
+// on-screen — they hang ~8 units below the node center.
+const BOUND_X = 58;
+const BOUND_Y_MIN = -58;
+const BOUND_Y_MAX = 50;
 
 // Obsidian-style graph. Hover a node to light its edges; click to open
-// the file as a tab. Nodes drag a little and spring back — the ring
-// owns the layout.
+// the file as a tab. Nodes drag freely and stay where dropped.
 export default function Graph({ onOpen }) {
   const [hot, setHot] = useState(null);
+  const [dragging, setDragging] = useState(null); // name being dragged
   const [offs, setOffs] = useState({}); // name → drag offset {x, y}
   const svgRef = useRef(null);
   const drag = useRef(null); // {name, sx, sy, ox, oy}
-  const snap = useRef(null); // rAF driving the spring-back
   const moved = useRef(false); // real drag happened — swallow the click
+  const cursor = useRef(null); // last pointer pos, svg units
+  const feel = useRef({}); // name → lerped magnet offset {x, y}
+  const popRefs = useRef({}); // name → inner <g> the rAF loop writes to
+  // Mirrors so the rAF loop sees current values without re-subscribing.
+  const hotRef = useRef(hot);
+  hotRef.current = hot;
+  const offsRef = useRef(offs);
+  offsRef.current = offs;
 
-  useEffect(() => () => cancelAnimationFrame(snap.current), []);
+  // Ambient drift + magnetic pull. One loop mutates transform attributes
+  // directly so React never re-renders for it. Skipped entirely when the
+  // user prefers reduced motion — the entrance CSS handles itself.
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf;
+    const tick = (t) => {
+      const c = cursor.current;
+      const h = hotRef.current;
+      G.names.forEach((n, i) => {
+        const el = popRefs.current[n];
+        if (!el) return;
+        const f = feel.current[n] || (feel.current[n] = { x: 0, y: 0 });
+        let tx = 0;
+        let ty = 0;
+        // Hovered node leans ~1.5px toward the cursor; the node under
+        // the drag already tracks the pointer, so skip it.
+        if (n === h && c && drag.current?.name !== n) {
+          const o = offsRef.current[n] || { x: 0, y: 0 };
+          const dx = c.x - G.pos[n].x - o.x;
+          const dy = c.y - G.pos[n].y - o.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 0.01) {
+            const m = Math.min(0.3, d * 0.12);
+            tx = (dx / d) * m;
+            ty = (dy / d) * m;
+          }
+        }
+        f.x += (tx - f.x) * LERP;
+        f.y += (ty - f.y) * LERP;
+        // Ambient breathing: slow, low-amplitude sine per node. Golden-angle
+        // phases keep the ring from pulsing in sync.
+        const ax = Math.sin(t * 0.00045 + i * 2.4) * 0.24;
+        const ay = Math.cos(t * 0.00035 + i * 1.7) * 0.2;
+        el.setAttribute("transform", `translate(${f.x + ax} ${f.y + ay})`);
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("pointermove", onMove);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toSvg = (e) => {
     const svg = svgRef.current;
@@ -54,55 +113,35 @@ export default function Graph({ onOpen }) {
     return pt.matrixTransform(svg.getScreenCTM().inverse());
   };
 
+  const track = (e) => {
+    cursor.current = toSvg(e);
+  };
+
   const onMove = (e) => {
+    track(e);
     const d = drag.current;
     if (!d) return;
-    const loc = toSvg(e);
-    let x = d.ox + loc.x - d.sx;
-    let y = d.oy + loc.y - d.sy;
-    const len = Math.hypot(x, y);
-    if (len > DRAG_MAX) {
-      x = (x / len) * DRAG_MAX;
-      y = (y / len) * DRAG_MAX;
-    }
-    if (len > 1.5) moved.current = true;
+    const loc = cursor.current;
+    // Clamp the absolute position, not the offset, so nodes can't be
+    // pushed off-canvas.
+    const px = G.pos[d.name].x + d.ox + loc.x - d.sx;
+    const py = G.pos[d.name].y + d.oy + loc.y - d.sy;
+    const x = Math.min(BOUND_X, Math.max(-BOUND_X, px)) - G.pos[d.name].x;
+    const y = Math.min(BOUND_Y_MAX, Math.max(BOUND_Y_MIN, py)) - G.pos[d.name].y;
+    if (Math.hypot(x - d.ox, y - d.oy) > 1.5) moved.current = true;
     setOffs((o) => ({ ...o, [d.name]: { x, y } }));
   };
 
   const endDrag = () => {
-    const d = drag.current;
     drag.current = null;
+    setDragging(null);
     window.removeEventListener("pointermove", onMove);
-    if (!d) return;
-    // spring home — shrink the offset until it's gone
-    const name = d.name;
-    const tick = () => {
-      let done = false;
-      setOffs((o) => {
-        const cur = o[name];
-        if (!cur) {
-          done = true;
-          return o;
-        }
-        const x = cur.x * 0.78;
-        const y = cur.y * 0.78;
-        if (Math.hypot(x, y) < 0.2) {
-          done = true;
-          const rest = { ...o };
-          delete rest[name];
-          return rest;
-        }
-        return { ...o, [name]: { x, y } };
-      });
-      if (!done) snap.current = requestAnimationFrame(tick);
-    };
-    snap.current = requestAnimationFrame(tick);
   };
 
   const grab = (e, n) => {
-    cancelAnimationFrame(snap.current); // freeze a mid-flight return
     const loc = toSvg(e);
     moved.current = false;
+    setDragging(n);
     drag.current = {
       name: n,
       sx: loc.x,
@@ -122,10 +161,12 @@ export default function Graph({ onOpen }) {
   return (
     <svg
       ref={svgRef}
-      className="graph"
+      className={`graph${hot ? " graph--has-hot" : ""}`}
       viewBox="-62 -62 124 124"
       role="img"
       aria-label="graph of site files"
+      onPointerMove={track}
+      onPointerLeave={() => (cursor.current = null)}
     >
       <defs>
         <marker
@@ -171,13 +212,17 @@ export default function Graph({ onOpen }) {
           />
         );
       })}
-      {G.names.map((n) => {
+      {G.names.map((n, i) => {
         const r = radius(n);
         return (
           <g
             key={n}
             transform={`translate(${at(n).x} ${at(n).y})`}
-            className={`graph__node${n === G.hub ? " is-hub" : ""}`}
+            className={`graph__node${n === G.hub ? " is-hub" : ""}${
+              n === hot ? " is-hot" : ""
+            }${n === dragging ? " is-drag" : ""}`}
+            // --r drives the CSS hover-grow; --d staggers the entrance.
+            style={{ "--r": `${r}px`, "--d": `${i * 38}ms` }}
             onMouseEnter={() => setHot(n)}
             onMouseLeave={() => setHot(null)}
             onPointerDown={(e) => grab(e, n)}
@@ -189,11 +234,18 @@ export default function Graph({ onOpen }) {
               onOpen(n);
             }}
           >
-            <circle className="graph__hit" r={r + 3} />
-            <circle className="graph__dot" r={r} />
-            <text className="graph__label" y={r + 4.6} textAnchor="middle">
-              {n}
-            </text>
+            <g
+              className="graph__pop"
+              ref={(el) => {
+                popRefs.current[n] = el;
+              }}
+            >
+              <circle className="graph__hit" r={r + HIT} />
+              <circle className="graph__dot" r={r} />
+              <text className="graph__label" y={r + 4.6} textAnchor="middle">
+                {n}
+              </text>
+            </g>
           </g>
         );
       })}

@@ -16,7 +16,7 @@ export default function ThemeToggle() {
     clearTimeout(fadeTimer.current);
     fadeTimer.current = setTimeout(
       () => root.classList.remove("theme-transitioning"),
-      500,
+      1300,
     );
     try {
       localStorage.setItem("a1-theme", next);

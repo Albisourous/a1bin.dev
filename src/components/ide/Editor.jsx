@@ -89,8 +89,14 @@ import { SITE } from "../../content/site.js";
 import Graph from "./Graph.jsx";
 import Snowboard from "./Snowboard.jsx";
 import Leaderboard from "./Leaderboard.jsx";
-import Metrics from "./Metrics.jsx";
-import AB from "./AB.jsx";
+import { ICONS } from "./icons.jsx";
+
+// WIP pseudo-tabs (SITE.metricsTab, SITE.abTab) — same icon the
+// activity bar uses, rendered large over an "under construction" note.
+const WIP_ICONS = {
+  [SITE.metricsTab]: ICONS.metrics,
+  [SITE.abTab]: ICONS.ab,
+};
 
 // Editable editor: a styled <pre> shows the content, a transparent
 // <textarea> on top owns the caret and input. Gutter numbers count the
@@ -99,8 +105,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
   const isGraph = active === SITE.graphTab;
   const isGame = active === SITE.gameFile;
   const isBoard = active === SITE.boardFile;
-  const isMetrics = active === SITE.metricsTab;
-  const isAb = active === SITE.abTab;
+  const wip = WIP_ICONS[active];
   const pdf = SITE.pdfs[active];
   const lines = text.split("\n");
   // Tab drag state: `dragTab` is being dragged, `overTab` is the drop
@@ -112,7 +117,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
     setOverTab(null);
   };
   return (
-    <section className="editor" aria-label={`editor — ${active}`}>
+    <main className="editor" aria-label={`editor — ${active}`}>
       <div
         className="editor__tabbar"
         onDragOver={(e) => e.preventDefault()}
@@ -177,13 +182,10 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
         <div className="editor__game">
           <Leaderboard />
         </div>
-      ) : isMetrics ? (
-        <div className="editor__game">
-          <Metrics />
-        </div>
-      ) : isAb ? (
-        <div className="editor__game">
-          <AB />
+      ) : wip ? (
+        <div className="editor__wip">
+          {wip}
+          <span>under construction</span>
         </div>
       ) : pdf ? (
         <div className="editor__pdf">
@@ -216,6 +218,6 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
       ) : (
         <div className="editor__body editor__empty">{SITE.emptyEditor}</div>
       )}
-    </section>
+    </main>
   );
 }

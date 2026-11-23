@@ -48,6 +48,10 @@ body {
 .ide {
   display: grid;
   grid-template-rows: 34px 1fr 24px;
+  // The implicit column would be `auto` — sized to the workbench's
+  // max-content, so a wide editor body (long lines, the a/b log) could
+  // push the whole page past the viewport. Cap it at the container.
+  grid-template-columns: minmax(0, 1fr);
   height: 100vh;
   // Mobile Safari sizes vh to the large viewport (chrome hidden), which
   // pushes the status bar under the browser toolbar. dvh tracks the
@@ -388,6 +392,22 @@ body.is-resizing-y {
     color: var(--noise);
   }
 
+  // WIP tabs (metrics, a/b) — big dim icon over a one-line note.
+  &__wip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: s.$space-3;
+    color: var(--noise);
+
+    svg {
+      width: 40px;
+      height: 40px;
+    }
+  }
+
   &__body {
     flex: 1;
     overflow: auto;
@@ -504,6 +524,10 @@ body.is-resizing-y {
     stroke: var(--border);
     stroke-width: 0.35;
     marker-end: url(#graph-arrow);
+    animation: graph-fade 0.55s 0.32s backwards;
+    transition:
+      stroke 0.18s ease,
+      opacity 0.18s ease;
 
     &.is-hot {
       stroke: var(--accent);
@@ -513,6 +537,8 @@ body.is-resizing-y {
 
   &__arrow {
     fill: var(--border);
+    animation: graph-fade 0.55s 0.32s backwards;
+    transition: opacity 0.18s ease;
 
     &--hot {
       fill: var(--accent);
@@ -521,6 +547,22 @@ body.is-resizing-y {
 
   &__node {
     cursor: pointer;
+    transition: opacity 0.18s ease;
+  }
+
+  &__node.is-drag {
+    cursor: grabbing;
+  }
+
+  &:has(&__node.is-drag) {
+    cursor: grabbing;
+  }
+
+  // Inner wrapper: entrance fade + the transform the rAF loop writes
+  // (ambient drift, magnetic pull). Opacity-only animation so the two
+  // never fight over `transform`.
+  &__pop {
+    animation: graph-fade 0.45s var(--d, 0ms) backwards;
   }
 
   &__hit {
@@ -533,6 +575,13 @@ body.is-resizing-y {
     fill: var(--bg-raise);
     stroke: var(--border);
     stroke-width: 0.35;
+    r: var(--r);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: graph-pop 0.5s var(--d, 0ms) backwards;
+    transition:
+      r 0.18s ease,
+      stroke 0.18s ease;
   }
 
   &__label {
@@ -540,10 +589,24 @@ body.is-resizing-y {
     font-family: t.$font-ui;
     font-size: 3.1px;
     user-select: none;
+    transition: fill 0.18s ease;
   }
 
-  &__node:hover &__dot {
+  // Hover (or drag) grows the dot a touch and lights the neighbourhood;
+  // everything else eases back instead of snapping.
+  &__node:hover &__dot,
+  &__node.is-drag &__dot {
     stroke: var(--accent);
+    r: calc(var(--r) + 0.6px);
+  }
+
+  &--has-hot &__node:not(.is-hot) {
+    opacity: 0.55;
+  }
+
+  &--has-hot &__edge:not(.is-hot),
+  &--has-hot &__arrow:not(&__arrow--hot) {
+    opacity: 0.3;
   }
 
   &__node:hover &__label {
@@ -558,6 +621,37 @@ body.is-resizing-y {
   &__node.is-hub &__label {
     fill: var(--accent);
     font-weight: 700;
+  }
+}
+
+@keyframes graph-pop {
+  from {
+    transform: scale(0);
+  }
+}
+
+@keyframes graph-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graph {
+    &__pop,
+    &__dot,
+    &__edge,
+    &__arrow {
+      animation: none;
+    }
+
+    &__node,
+    &__dot,
+    &__edge,
+    &__arrow,
+    &__label {
+      transition: none;
+    }
   }
 }
 
@@ -916,6 +1010,7 @@ body.is-resizing-y {
   &__item--btn {
     color: var(--accent);
     cursor: pointer;
+    text-decoration: none;
 
     &.is-off {
       color: var(--ink-dim);
