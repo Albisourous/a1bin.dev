@@ -100,6 +100,10 @@ export default function App() {
   const firstNav = useRef(true);
   useEffect(() => {
     const wanted = active ? `/${SITE.urls[active] ?? active}` : "/";
+    document.title = active ? `${active} — a1bin.dev` : "a1bin.dev — Albin Shrestha";
+    document
+      .querySelector('link[rel="canonical"]')
+      ?.setAttribute("href", `https://a1bin.dev${wanted}`);
     const replace = firstNav.current;
     firstNav.current = false;
     if (decodeURIComponent(location.pathname) !== wanted)

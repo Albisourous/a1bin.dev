@@ -19,3 +19,19 @@
   color-scheme: light;
   @include emit(c.$light);
 }
+
+// Theme switch fade — active only while ThemeToggle holds
+// .theme-transitioning on <html>, so first paint never transitions.
+@media (prefers-reduced-motion: no-preference) {
+  .theme-transitioning,
+  .theme-transitioning *,
+  .theme-transitioning *::before,
+  .theme-transitioning *::after {
+    transition:
+      background-color 450ms ease-in-out,
+      color 450ms ease-in-out,
+      border-color 450ms ease-in-out,
+      fill 450ms ease-in-out,
+      stroke 450ms ease-in-out;
+  }
+}
