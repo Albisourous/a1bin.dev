@@ -1,0 +1,71 @@
+@use "tokens/space" as s;
+@use "mixins/type" as ty;
+
+// Metrics — traffic dashboard pseudo-tab (Metrics.jsx). A monospace
+// stat wall plus unicode-block sparklines; the editor pane is the page.
+
+.metrics {
+  flex: 1;
+  overflow: auto;
+  padding: s.$space-5 s.$space-6;
+  @include ty.doc-text;
+  color: var(--ink);
+
+  &__title {
+    font-weight: 700;
+    margin-bottom: s.$space-4;
+  }
+
+  &__window {
+    margin-left: 1em;
+    font-weight: 400;
+    color: var(--noise);
+  }
+
+  &__stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: s.$space-4 s.$space-6;
+    margin-bottom: s.$space-5;
+  }
+
+  &__num {
+    font-size: 2em;
+    line-height: 1.1;
+    color: var(--accent);
+  }
+
+  &__label {
+    color: var(--ink-dim);
+  }
+
+  &__series {
+    display: flex;
+    align-items: baseline;
+    gap: 1.5em;
+  }
+
+  &__name {
+    width: 6em;
+    flex: none;
+    color: var(--ink-dim);
+  }
+
+  &__spark {
+    color: var(--accent-2);
+    white-space: pre;
+  }
+
+  // today's bar — the live edge of each sparkline
+  &__today {
+    color: var(--accent);
+  }
+
+  &__count {
+    color: var(--noise);
+  }
+
+  &__dim {
+    color: var(--ink-dim);
+  }
+}

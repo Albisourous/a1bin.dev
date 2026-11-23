@@ -10,7 +10,12 @@
 //
 //   { ok: true,
 //     totals: { visits, visitors, runs, players, chats },
-//     days: [{ d: "YYYY-MM-DD", visits, runs, chats }, …last 30, oldest first] }
+//     days: [{ d: "YYYY-MM-DD", visits, runs, chats }, …last 30, oldest first],
+//     experiments: { <id>: { <arm>: count, … } } — live a/b assignments }
+//
+// POST also accepts { event: "assign", exp, arm } — one browser's draw in
+// a live experiment, validated against the registry in
+// src/content/experiments.js and counted in hash `metrics:exp:<id>`.
 //
 // Storage: hash `metrics:totals` (visits/runs/chats fields), HyperLogLog
 // `metrics:visitors` (unique visitor ids), per-day hash
@@ -23,6 +28,7 @@
 // or KV_REST_API_URL/KV_REST_API_TOKEN. Missing env → 200 {ok:false} so
 // the client falls through to its unconfigured state, never an error.
 import { Redis } from "@upstash/redis";
+import { EXPERIMENTS } from "../src/content/experiments.js";
 
 const TOTALS = "metrics:totals";
 const VISITORS = "metrics:visitors";
@@ -31,6 +37,7 @@ const DAYS = 30;
 const DAY_TTL = 100 * 86400;
 
 const dayKey = (d) => `metrics:day:${d}`;
+const expKey = (id) => `metrics:exp:${id}`;
 const num = (h, k) => Number(h?.[k] ?? 0) || 0;
 
 // last N UTC date strings, oldest first
@@ -56,7 +63,10 @@ export default async function handler(req, res) {
       p.hlen(RIDERS);
       p.pfcount(VISITORS);
       for (const d of names) p.hgetall(dayKey(d));
-      const [totals, players, visitors, ...rows] = await p.exec();
+      for (const e of EXPERIMENTS) p.hgetall(expKey(e.id));
+      const [totals, players, visitors, ...rest] = await p.exec();
+      const rows = rest.slice(0, names.length);
+      const expRows = rest.slice(names.length);
       return res.status(200).json({
         ok: true,
         totals: {
@@ -72,10 +82,23 @@ export default async function handler(req, res) {
           runs: num(rows[i], "runs"),
           chats: num(rows[i], "chats"),
         })),
+        experiments: Object.fromEntries(
+          EXPERIMENTS.map((e, i) => [e.id, expRows[i] ?? {}])
+        ),
       });
     }
     if (req.method === "POST") {
-      const { event, id } = req.body ?? {};
+      const { event, id, exp, arm } = req.body ?? {};
+      if (event === "assign") {
+        // one arm of one live experiment — anything else is rejected,
+        // so the registry bounds which keys a client can create
+        const e = EXPERIMENTS.find((x) => x.id === exp);
+        if (e?.status !== "live" || !e.variants.some((v) => v.key === arm)) {
+          return res.status(400).json({ error: "bad assignment" });
+        }
+        await redis.hincrby(expKey(e.id), arm, 1);
+        return res.status(200).json({ ok: true });
+      }
       if (event !== "visit") {
         return res.status(400).json({ error: "unknown event" });
       }
