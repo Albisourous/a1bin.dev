@@ -7,15 +7,7 @@ import { METRICS } from "../../content/metrics.js";
 const BARS = "▁▂▃▄▅▆▇█";
 const bar = (v, max) => BARS[max ? Math.round((v / max) * 7) : 0];
 
-const STAT_KEYS = [
-  "visits",
-  "chats",
-  "runs",
-  "term",
-  "resume",
-  "visitors",
-  "players",
-];
+const STAT_KEYS = ["visits", "chats", "runs", "term", "resume"];
 const SERIES_KEYS = ["visits", "chats", "runs", "term", "resume"];
 
 // Live traffic dashboard — big numbers, then a sparkline per metric.
@@ -36,8 +28,7 @@ export default function Metrics() {
   const { loaded, data } = state;
   const totals = data?.totals ?? {};
   const days = data?.days ?? [];
-  const dead =
-    data && !totals.visits && !totals.runs && !totals.chats && !totals.players;
+  const dead = data && SERIES_KEYS.every((k) => !totals[k]);
 
   if (!data || dead) {
     return (

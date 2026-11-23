@@ -4,7 +4,7 @@ export const METRICS = {
   title: "metrics",
   window: "last 30 days",
   loading: "…",
-  unconfigured: "metrics not configured — `npx vercel dev` serves the api",
+  unconfigured: "metrics not configured — check .env.local for upstash vars",
   empty: "no data yet — come back after a few visits",
   stats: {
     visits: "page loads",
@@ -12,11 +12,9 @@ export const METRICS = {
     runs: "games played",
     term: "terminal commands",
     resume: "resume opens",
-    visitors: "unique visitors",
-    players: "players",
   },
   series: {
-    visits: "loads",
+    visits: "page loads",
     chats: "chats",
     runs: "games",
     term: "term",
