@@ -43,10 +43,12 @@
 
 
 
-  // Contribution matrix — one row per metric, one cell per day. Zero
-  // days ghost out at border strength; anything nonzero paints accent,
-  // brighter with volume. Today's cell gets the ring.
+  // Contribution matrix — one row per metric, one cell per day for the
+  // last two weeks. Zero days ghost out at border strength; anything
+  // nonzero paints accent, brighter with volume. Today's cell gets the
+  // ring. Fixed cell size keeps it a compact dot-grid, never a band.
   &__rows {
+    --cell: 10px;
     display: flex;
     flex-direction: column;
     gap: s.$space-3;
@@ -65,10 +67,9 @@
   }
 
   &__grid {
-    flex: 1;
-    min-width: 0;
+    flex: none;
     display: grid;
-    grid-template-columns: repeat(30, 1fr);
+    grid-template-columns: repeat(14, var(--cell));
     gap: 4px;
   }
 
@@ -111,8 +112,8 @@
   }
 
   &__axis-track {
-    flex: 1;
-    min-width: 0;
+    flex: none;
+    width: calc(14 * var(--cell) + 13 * 4px);
     display: flex;
     justify-content: space-between;
     color: var(--noise);
@@ -121,5 +122,18 @@
 
   &__dim {
     color: var(--ink-dim);
+  }
+}
+
+// Phones — smaller cells keep the grid on one line beside the label.
+@media (max-width: 560px) {
+  .metrics {
+    &__rows {
+      --cell: 8px;
+    }
+
+    &__name {
+      width: 5.5em;
+    }
   }
 }

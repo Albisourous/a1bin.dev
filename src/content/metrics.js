@@ -2,7 +2,7 @@
 // Same voice as the rest of the site: lowercase, terse, a little playful.
 export const METRICS = {
   title: "metrics",
-  window: "last 30 days",
+  window: "last two weeks",
   loading: "…",
   unconfigured: "metrics not configured — check .env.local for upstash vars",
   empty: "no data yet — come back after a few visits",
@@ -20,7 +20,7 @@ export const METRICS = {
     term: "term",
     resume: "resume",
   },
-  axisStart: "30 days ago",
+  axisStart: (n) => `${n} days ago`,
   axisNote: "one cell = one day · brighter = busier",
   axisEnd: "today",
 };
