@@ -132,4 +132,54 @@ export const postScore = (row) => {
   send(row);
 };
 
+// wordle-style brag card — your row plus the riders directly above and
+// below you, pinned to the edges when you're first or last. Bars scale
+// to the top shown score. runD is the just-finished distance, slotted
+// in when the player somehow has no board row yet.
+export const shareText = (me, runD) => {
+  let board = loadScores();
+  let mine = board.findIndex((r) => (r.name ?? "rider") === me);
+  if (mine < 0 && runD != null) {
+    const row = { d: runD, name: me };
+    board = [...board, row].sort((a, b) => b.d - a.d);
+    mine = board.indexOf(row);
+  }
+  const start = Math.max(
+    0,
+    Math.min(mine < 0 ? 0 : mine - 1, board.length - 3)
+  );
+  const rows = board.slice(start, start + 3);
+  if (!rows.length) return `snowboard\n\nbeat me → a1bin.dev/snowboard/game`;
+  const rankW = Math.max(...rows.map((_, i) => String(start + i + 1).length)) + 2;
+  const nameW = Math.max(...rows.map((r) => (r.name ?? "rider").length));
+  const maxD = rows[0].d;
+  const lines = rows.map((r, i) => {
+    const bar = "█".repeat(Math.max(1, Math.floor((r.d / maxD) * 15)));
+    const tag = i === mine - start ? " ← me" : "";
+    return `${`[${start + i + 1}]`.padEnd(rankW)} ${(r.name ?? "rider").padEnd(nameW)} ${bar} ${r.d}m${tag}`;
+  });
+  return `snowboard\n${lines.join("\n")}\n\nbeat me → a1bin.dev/snowboard/game`;
+};
+
+// native share sheet where the platform has one (iOS/macOS → iMessage
+// and friends), clipboard copy elsewhere. Resolves "shared" | "copied"
+// | null (sheet dismissed or copy failed).
+export const shareScore = async (me, runD) => {
+  const text = shareText(me, runD);
+  if (navigator.share) {
+    try {
+      await navigator.share({ text });
+      return "shared";
+    } catch {
+      return null;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    return "copied";
+  } catch {
+    return null;
+  }
+};
+
 refreshScores();

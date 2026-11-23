@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
-import { loadScores, refreshScores } from "./scores.js";
+import { loadScores, refreshScores, riderName, shareScore } from "./scores.js";
 
 // Live leaderboard — score and rider, nothing else. Rendered in place
 // of the leaderboard file's text.
 export default function Leaderboard() {
   const [scores, setScores] = useState(loadScores);
+  const [shareMsg, setShareMsg] = useState("share");
+
+  // same brag card as the game's over screen — native sheet where
+  // the platform has one, clipboard otherwise
+  const share = async () => {
+    const done = await shareScore(riderName() || "rider");
+    if (done) {
+      setShareMsg(done);
+      setTimeout(() => setShareMsg("share"), 1500);
+    }
+  };
 
   // stay live — re-read when a run ends, or another tab writes
   useEffect(() => {
@@ -37,6 +48,9 @@ export default function Leaderboard() {
           ))}
         </>
       )}
+      <button className="board__share" onClick={share}>
+        {shareMsg}
+      </button>
     </div>
   );
 }

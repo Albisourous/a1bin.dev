@@ -622,12 +622,13 @@ body.is-resizing-y {
   }
 
   // Restart — the only way back onto the hill. A real button so a stray
-  // tap or a held space can't eat a run (or its name prompt).
-  &__restart {
+  // tap or a held space can't eat a run (or its name prompt). Share sits
+  // beside it — copies a brag card for the group chat.
+  &__restart,
+  &__share {
     position: absolute;
     left: 50%;
     top: 68%;
-    transform: translateX(-50%);
     z-index: 1;
     font-family: t.$font-doc;
     font-size: 15px;
@@ -641,6 +642,14 @@ body.is-resizing-y {
       color: var(--accent);
       border-color: var(--accent);
     }
+  }
+
+  &__restart {
+    transform: translateX(0.6em);
+  }
+
+  &__share {
+    transform: translateX(calc(-100% - 0.6em));
   }
 }
 
@@ -656,6 +665,20 @@ body.is-resizing-y {
   &__title {
     font-weight: 700;
     margin-bottom: s.$space-4;
+  }
+
+  &__share {
+    font: inherit;
+    color: var(--ink-dim);
+    background: none;
+    border: none;
+    padding: 0;
+    margin-top: s.$space-4;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--accent);
+    }
   }
 
   &__row {

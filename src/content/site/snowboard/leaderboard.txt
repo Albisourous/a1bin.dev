@@ -2,5 +2,5 @@
 
 this file renders instead of showing text. open it in the editor.
 
-your top 5 runs from snowboard/game.txt, kept in this browser only.
+every player's best run from snowboard/game.txt — a shared board.
 ride well.

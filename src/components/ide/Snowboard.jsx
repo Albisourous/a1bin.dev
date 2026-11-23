@@ -6,6 +6,7 @@ import {
   riderName,
   saveBest,
   saveName,
+  shareScore,
 } from "./scores.js";
 
 // ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
@@ -16,23 +17,31 @@ import {
 // a dot-matrix overlay keeps the terminal texture. Land on a downslope
 // transition for a "perfect slide" — flat landings bounce, upslope
 // landings kill your speed, and a bad-angle landing wipes you out.
-// Endless — a run ends only when you slam. The sun sets as you ride:
-// 15 seconds of daylight, ringed-dot tokens on the slope buy +1s each,
-// and night is just riding in the dark until a token brings dawn back.
-// The hills steepen with distance.
+// Endless — a run ends on a slam, a stall, or a night landing. The
+// sun sets as you ride: 15 seconds of daylight, ringed-dot tokens on
+// the slope buy +1s each, and once night falls the next touchdown
+// ends it — the last flight gets to glide out. Hills steepen with
+// distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
 const VIEW_H = 26; // world units of vertical range
 
 // hills steepen with distance — a run has its own difficulty curve.
-// ph is a per-run phase triple rolled in fresh(), so every run — and
-// every rider — gets a different mountain instead of the same script.
-const hill = (x, ph) =>
-  (1 + Math.min(1, Math.max(0, x) * 0.001)) *
-  (5.2 * Math.sin(x * 0.072 + ph[0]) +
-    3.0 * Math.sin(x * 0.027 + 1.7 + ph[1]) +
-    1.5 * Math.sin(x * 0.13 + 4.2 + ph[2]));
+// ph is a per-run phase triple rolled in fresh(). It fades in past
+// DIVERGE: every run drops onto the same foothills, then the mountains
+// slowly go their own way so wipeouts stop landing on one spot.
+const DIVERGE = 300; // meters of shared terrain before runs split
+const FADE = 600; // meters until the run's own phases are fully in
+const hill = (x, ph) => {
+  const b = Math.min(1, Math.max(0, (x - DIVERGE) / FADE));
+  return (
+    (1 + Math.min(1, Math.max(0, x) * 0.001)) *
+    (5.2 * Math.sin(x * 0.072 + ph[0] * b) +
+      3.0 * Math.sin(x * 0.027 + 1.7 + ph[1] * b) +
+      1.5 * Math.sin(x * 0.13 + 4.2 + ph[2] * b))
+  );
+};
 const slope = (x, ph) => (hill(x + 0.4, ph) - hill(x - 0.4, ph)) / 0.8;
 // the run starts on the first crest — lift drops you on a hilltop
 const startFor = (ph) => {
@@ -44,6 +53,7 @@ const startFor = (ph) => {
 const G_FLOAT = 16; // released — floaty, hangs in the air
 const G_DIVE = 70; // held — drops hard
 const PUSH = 50; // slope → speed coupling on the snow
+const CARVE = 14; // held-on-snow friction — digging in scrubs speed
 const V_MIN = 10;
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
@@ -84,6 +94,10 @@ const hash = (n) => {
   n = (n * 2654435761) >>> 0;
   return (n ^ (n >> 13)) >>> 0;
 };
+
+// placement (tokens, pines, specks) re-keys on the run seed past the
+// shared opening — early runs match, later runs scatter
+const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 
 // sun tokens thin out with distance until a plateau — from ~700m on
 // the spacing holds, so a run that keeps speed and keeps grabbing
@@ -130,6 +144,10 @@ function step(st, dt) {
       if (s < 0) st.vx += -s * PUSH * (st.held ? 2 : 1) * dt;
       else st.vx += -s * PUSH * dt;
       st.vx += (13 - st.vx) * 0.5 * dt;
+      // held on the snow — a carve, not a dive: friction bleeds speed
+      // so an always-held run stalls out. Only a descent steep enough
+      // to out-pump the carve still gains; timing is the skill.
+      if (st.held) st.vx -= CARVE * dt;
     }
   } else {
     st.vy -= g * dt;
@@ -183,7 +201,7 @@ function step(st, dt) {
   // time tokens — strung along jump arcs and the snow; the rider's
   // body has to touch one. Each buys a second of daylight.
   const pn = Math.round(st.x);
-  const ph = hash(pn ^ st.seed);
+  const ph = placeHash(pn, st.seed);
   if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
     const py = tokenY(pn, ph, st.ph);
     if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
@@ -195,7 +213,21 @@ function step(st, dt) {
   if (st.fx && (st.fx.t += dt) > 0.9) st.fx = null;
   // fever — chained slides unlock a higher top speed
   const vmax = st.combo >= 3 ? V_MAX + 8 : V_MAX;
-  st.vx = Math.min(vmax, Math.max(V_MIN, st.vx));
+  // carving can pull speed under the glide floor — that's the stall.
+  // Release before it hits zero and the snow hands the glide back.
+  const vmin = st.ground && st.held ? 0 : V_MIN;
+  st.vx = Math.min(vmax, Math.max(vmin, st.vx));
+  if (st.ground && st.vx <= 0.3 && !st.over) {
+    st.vx = 0;
+    st.death = "stalled out";
+    st.over = true;
+  }
+  // night fell — past dayLen, the next touchdown ends the run. Riders
+  // still in the air get the rest of the flight for free distance.
+  if (st.t >= st.dayLen && st.ground && !st.over) {
+    st.death = "night fell";
+    st.over = true;
+  }
   st.cam += (st.y - st.cam) * Math.min(1, 8 * dt);
 }
 
@@ -248,7 +280,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `10px ${FONT}`;
   const n0 = Math.floor(camX * 0.5);
   for (let n = n0; n < n0 + VIEW_W * 2 + 4; n++) {
-    const h = hash(n ^ st.seed);
+    const h = placeHash(n, st.seed);
     if (h % 23 !== 0) continue;
     ctx.fillText(h % 2 ? "'" : ".", (n - camX * 0.5) * sx, 10 + ((h >> 5) % Math.round(anchorY * 0.5)));
   }
@@ -275,7 +307,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `11px ${FONT}`;
   ctx.textAlign = "center";
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    if (hash(n ^ st.seed) % 53 !== 0) continue;
+    if (placeHash(n, st.seed) % 53 !== 0) continue;
     const tx = (n - camX) * sx;
     const gy = ty(hill(n, st.ph));
     if (gy < 30 || gy > H - 8) continue;
@@ -440,7 +472,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.fillStyle = C.accent2;
   ctx.lineWidth = 1.4;
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    const h = hash(n ^ st.seed);
+    const h = placeHash(n, st.seed);
     if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
     const gy = ty(tokenY(n, h, st.ph)) + Math.sin(st.t * 3 + n) * 1.5;
     drawToken(ctx, (n - camX) * sx, gy);
@@ -534,6 +566,7 @@ export default function Snowboard() {
   const [touchNaming, setTouchNaming] = useState(false);
   const [touchBuf, setTouchBuf] = useState("");
   const [over, setOver] = useState(false);
+  const [shareMsg, setShareMsg] = useState("share");
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -662,8 +695,22 @@ export default function Snowboard() {
 
   const restart = () => {
     setTouchNaming(false);
+    setShareMsg("share");
     Object.assign(sim.current, fresh());
     setOver(false);
+  };
+
+  // native share sheet where it exists (iMessage etc.), clipboard
+  // otherwise — the brag card itself is built in scores.js
+  const share = async () => {
+    const done = await shareScore(
+      riderName() || "rider",
+      Math.floor(sim.current.x - sim.current.start)
+    );
+    if (done) {
+      setShareMsg(done);
+      setTimeout(() => setShareMsg("share"), 1500);
+    }
   };
 
   return (
@@ -701,13 +748,22 @@ export default function Snowboard() {
         </div>
       )}
       {over && (
-        <button
-          className="game__restart"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={restart}
-        >
-          restart
-        </button>
+        <>
+          <button
+            className="game__share"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={share}
+          >
+            {shareMsg}
+          </button>
+          <button
+            className="game__restart"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={restart}
+          >
+            restart
+          </button>
+        </>
       )}
     </div>
   );
