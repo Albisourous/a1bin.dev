@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { readdirSync, statSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Routes mirror src/content/site/ — every file gets a deep link
@@ -31,6 +31,35 @@ const sitemap = () => ({
   },
 });
 
+// /snowboard/game ships its own html shell — a copy of the built
+// index.html with game og tags swapped in. Vercel serves the static
+// file before the SPA rewrite, so share crawlers see the snowboard
+// icon while humans still boot the same bundle on the same route.
+const gameShare = () => ({
+  name: "game-share",
+  writeBundle() {
+    mkdirSync("dist/snowboard/game", { recursive: true });
+    writeFileSync(
+      "dist/snowboard/game/index.html",
+      readFileSync("dist/index.html", "utf8")
+        .replaceAll("a1bin.dev — Albin Shrestha", "snowboard — a1bin.dev")
+        .replaceAll(
+          "Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE.",
+          "tiny-wings on canvas — hold space to drop, ride the ridge until night falls."
+        )
+        .replaceAll('href="https://a1bin.dev/"', 'href="https://a1bin.dev/snowboard/game"')
+        .replaceAll(
+          'content="https://a1bin.dev/"',
+          'content="https://a1bin.dev/snowboard/game"'
+        )
+        .replaceAll("https://a1bin.dev/og.png", "https://a1bin.dev/snowboard-guy.png")
+        .replaceAll('content="2400"', 'content="512"')
+        .replaceAll('content="1260"', 'content="512"')
+        .replaceAll('content="summary_large_image"', 'content="summary"')
+    );
+  },
+});
+
 export default defineConfig({
-  plugins: [react(), sitemap()],
+  plugins: [react(), sitemap(), gameShare()],
 });
