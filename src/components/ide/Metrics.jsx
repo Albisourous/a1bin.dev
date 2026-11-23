@@ -7,8 +7,16 @@ import { METRICS } from "../../content/metrics.js";
 const BARS = "▁▂▃▄▅▆▇█";
 const bar = (v, max) => BARS[max ? Math.round((v / max) * 7) : 0];
 
-const STAT_KEYS = ["visitors", "visits", "runs", "players", "chats"];
-const SERIES_KEYS = ["visits", "runs", "chats"];
+const STAT_KEYS = [
+  "visits",
+  "chats",
+  "runs",
+  "term",
+  "resume",
+  "visitors",
+  "players",
+];
+const SERIES_KEYS = ["visits", "chats", "runs", "term", "resume"];
 
 // Live traffic dashboard — big numbers, then a sparkline per metric.
 // Rendered in place of the METRICS pseudo-tab.

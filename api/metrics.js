@@ -2,11 +2,13 @@
 // leaderboard; counters only, honor system.
 //
 // GET  /api/metrics            → {ok, totals, days} (shape below)
-// POST /api/metrics {event,id} → bump a counter. Clients may only send
-//                                "visit" — id is the browser's visitor
-//                                uuid, PFADDed to the uniques HLL. Runs
-//                                and chats are counted inside their own
-//                                endpoints so ad-blockers can't zero them.
+// POST /api/metrics {event,id} → bump a counter. Client events:
+//                                "visit" (id = browser uuid, PFADDed to
+//                                the uniques HLL), "term" (a terminal
+//                                command), "resume" (Resume.pdf opened).
+//                                Runs and chats are counted inside their
+//                                own endpoints so ad-blockers can't zero
+//                                them.
 //
 //   { ok: true,
 //     totals: { visits, visitors, runs, players, chats },
@@ -75,12 +77,16 @@ export default async function handler(req, res) {
           runs: num(totals, "runs"),
           players: players ?? 0,
           chats: num(totals, "chats"),
+          term: num(totals, "term"),
+          resume: num(totals, "resume"),
         },
         days: names.map((d, i) => ({
           d,
           visits: num(rows[i], "visits"),
           runs: num(rows[i], "runs"),
           chats: num(rows[i], "chats"),
+          term: num(rows[i], "term"),
+          resume: num(rows[i], "resume"),
         })),
         experiments: Object.fromEntries(
           EXPERIMENTS.map((e, i) => [e.id, expRows[i] ?? {}])
@@ -99,17 +105,25 @@ export default async function handler(req, res) {
         await redis.hincrby(expKey(e.id), arm, 1);
         return res.status(200).json({ ok: true });
       }
-      if (event !== "visit") {
+      // client-beaconed counters — "visit" is the only one that carries
+      // an id (the browser uuid for the uniques HLL)
+      if (!["visit", "term", "resume"].includes(event)) {
         return res.status(400).json({ error: "unknown event" });
       }
+      const field = event === "visit" ? "visits" : event;
       const day = dayKey(new Date().toISOString().slice(0, 10));
       const writes = [
-        redis.hincrby(TOTALS, "visits", 1),
-        redis.hincrby(day, "visits", 1),
+        redis.hincrby(TOTALS, field, 1),
+        redis.hincrby(day, field, 1),
         redis.expire(day, DAY_TTL),
       ];
       // visitor uuid → uniques HLL; a malformed id just skips the PFADD
-      if (typeof id === "string" && id.length > 0 && id.length <= 64) {
+      if (
+        event === "visit" &&
+        typeof id === "string" &&
+        id.length > 0 &&
+        id.length <= 64
+      ) {
         writes.push(redis.pfadd(VISITORS, id));
       }
       await Promise.all(writes);

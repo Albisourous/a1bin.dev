@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { SITE } from "./content/site.js";
+import { trackEvent } from "./lib/metrics.js";
 import TitleBar from "./components/ide/TitleBar.jsx";
 import ActivityBar from "./components/ide/ActivityBar.jsx";
 import Explorer from "./components/ide/Explorer.jsx";
@@ -102,6 +103,12 @@ export default function App() {
       return next;
     });
   };
+
+  // A pdf tab gaining focus = one "resume press" — explorer click,
+  // file-link open, or a /Resume.pdf deep link all land here.
+  useEffect(() => {
+    if (SITE.pdfs[active]) trackEvent("resume");
+  }, [active]);
 
   // Canonical follows the active file for SEO. The URL itself never
   // changes on navigation — deep links are inbound only.

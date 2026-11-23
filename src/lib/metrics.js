@@ -42,6 +42,19 @@ export const trackVisit = () => {
   }).catch(() => {});
 };
 
+// one countable interaction — terminal command, resume open. No
+// session guard: every press counts. Silent on failure.
+const EVENTS = new Set(["term", "resume"]);
+export const trackEvent = (name) => {
+  if (!EVENTS.has(name)) return;
+  fetch(API, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event: name }),
+    keepalive: true,
+  }).catch(() => {});
+};
+
 export const fetchMetrics = async () => {
   try {
     const res = await fetch(API);

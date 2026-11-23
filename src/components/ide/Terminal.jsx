@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "../../content/site.js";
+import { trackEvent } from "../../lib/metrics.js";
 
 // Fake shell pinned to the bottom of the workbench. Always open; the log
 // seeds from SITE.term and the prompt runs real commands against the site
@@ -41,6 +42,7 @@ export default function Terminal({ onOpen, onClose }) {
     const cmd = draft.trim();
     if (!cmd) return;
     setDraft("");
+    trackEvent("term"); // every submitted command counts, even `clear`
     if (cmd === "clear") {
       setLines([]);
       return;
