@@ -41,13 +41,7 @@
     color: var(--ink-dim);
   }
 
-  // the last-30-days subtotal under each all-time number
-  &__sub {
-    margin-top: s.$space-1;
-    font-size: 0.8em;
-    color: var(--noise);
-    font-variant-numeric: tabular-nums;
-  }
+
 
   // Contribution matrix — one row per metric, one cell per day. Zero
   // days ghost out at border strength; anything nonzero paints accent,
