@@ -8,6 +8,7 @@ import {
   saveName,
   shareScore,
 } from "./scores.js";
+import { trackEvent } from "../../lib/metrics.js";
 
 // ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
 // to drop into the downhill and build speed; release to float off the
@@ -608,6 +609,9 @@ export default function Snowboard() {
       if (sim.current.over && !sim.current.recorded) {
         sim.current.recorded = true;
         setOver(true);
+        // one finished run = one game played — counted when the over
+        // screen shows, so 0m slams and never-posted runs count too
+        trackEvent("run");
         const d = Math.floor(sim.current.x - sim.current.start);
         if (d > best.current) {
           best.current = d;

@@ -5,10 +5,11 @@
 // POST /api/metrics {event,id} → bump a counter. Client events:
 //                                "visit" (id = browser uuid, PFADDed to
 //                                the uniques HLL), "term" (a terminal
-//                                command), "resume" (Resume.pdf opened).
-//                                Runs and chats are counted inside their
-//                                own endpoints so ad-blockers can't zero
-//                                them.
+//                                command), "resume" (Resume.pdf opened),
+//                                "run" (a snowboard run reaching the
+//                                over screen). Chats are still counted
+//                                inside api/chat.js — the only event a
+//                                server endpoint sees for free.
 //
 //   { ok: true,
 //     totals: { visits, visitors, runs, players, chats },
@@ -107,10 +108,10 @@ export default async function handler(req, res) {
       }
       // client-beaconed counters — "visit" is the only one that carries
       // an id (the browser uuid for the uniques HLL)
-      if (!["visit", "term", "resume"].includes(event)) {
+      if (!["visit", "term", "resume", "run"].includes(event)) {
         return res.status(400).json({ error: "unknown event" });
       }
-      const field = event === "visit" ? "visits" : event;
+      const field = { visit: "visits", run: "runs" }[event] ?? event;
       const day = dayKey(new Date().toISOString().slice(0, 10));
       const writes = [
         redis.hincrby(TOTALS, field, 1),

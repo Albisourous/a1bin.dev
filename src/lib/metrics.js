@@ -42,9 +42,10 @@ export const trackVisit = () => {
   }).catch(() => {});
 };
 
-// one countable interaction — terminal command, resume open. No
-// session guard: every press counts. Silent on failure.
-const EVENTS = new Set(["term", "resume"]);
+// one countable interaction — terminal command, resume open, finished
+// snowboard run. No session guard: every press counts. Silent on
+// failure.
+const EVENTS = new Set(["term", "resume", "run"]);
 export const trackEvent = (name) => {
   if (!EVENTS.has(name)) return;
   fetch(API, {

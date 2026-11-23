@@ -70,16 +70,6 @@ export default async function handler(req, res) {
         };
         await redis.hset(HASH, { [key]: JSON.stringify(row) });
       }
-      // every valid POST is one finished run — count it even when it
-      // doesn't beat the rider's best. saveName() re-posts a stored
-      // row, so "runs" overcounts a little; fine for now. Wrapped so a
-      // metrics hiccup can never break the board.
-      try {
-        const day = `metrics:day:${new Date().toISOString().slice(0, 10)}`;
-        await redis.hincrby("metrics:totals", "runs", 1);
-        await redis.hincrby(day, "runs", 1);
-        await redis.expire(day, 100 * 86400);
-      } catch {}
       return res.status(200).json(await board(redis));
     }
     return res.status(405).json({ error: "method not allowed" });
