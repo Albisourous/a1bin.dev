@@ -1,9 +1,9 @@
 import { AB_COPY, EXPERIMENTS } from "../../content/experiments.js";
-import { variantFor } from "../../lib/ab.js";
 
-// Public experiment log — the questions on the table and, where this
-// browser has been dealt in, which arm it drew (deterministic via
-// variantFor). No status claims: we don't say a test is running.
+// Public experiment log — the questions on the table, the arms on each
+// side, and the metric that would decide. Nothing about what this
+// browser drew: assignments don't gate anything yet, so there is no
+// honest "you got" to show.
 export default function AB() {
   return (
     <div className="ab">
@@ -18,7 +18,6 @@ export default function AB() {
 }
 
 function Experiment({ e, n }) {
-  const you = variantFor(e); // dealt-in experiments only
   const won = e.winner;
   return (
     <section className={`ab__exp ab__exp--${e.status}`}>
@@ -29,11 +28,9 @@ function Experiment({ e, n }) {
       <div className="ab__q">{e.question}</div>
       <div className="ab__split">
         {e.variants.map((v) => {
-          const isYou = you?.key === v.key;
           const isWin = won === v.key;
           const cls = [
             "ab__arm",
-            isYou ? "is-you" : "",
             isWin ? "is-win" : "",
             won && !isWin ? "is-loss" : "",
           ].join(" ");
@@ -42,11 +39,7 @@ function Experiment({ e, n }) {
               <div className="ab__arm-top">
                 <span className="ab__key">{v.key}</span>
                 <span className="ab__label">{v.label}</span>
-                {(isYou || isWin) && (
-                  <span className="ab__tag">
-                    {isWin ? AB_COPY.winnerLabel : AB_COPY.youLabel}
-                  </span>
-                )}
+                {isWin && <span className="ab__tag">{AB_COPY.winnerLabel}</span>}
               </div>
               <div className="ab__note">{v.note}</div>
             </div>
@@ -57,11 +50,6 @@ function Experiment({ e, n }) {
         <span>
           {AB_COPY.metricLabel}: {e.metric}
         </span>
-        {you && (
-          <span className="ab__you">
-            {AB_COPY.youLabel}: {you.key} — {you.label}
-          </span>
-        )}
         {won && <span>→ {e.note}</span>}
       </div>
     </section>

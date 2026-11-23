@@ -48,10 +48,9 @@ export const EXPERIMENTS = [
 export const AB_COPY = {
   title: "a/b — experiment log",
   blurb:
-    "some choices on this site get settled by a/b draw — your browser " +
-    "holds the card. where you've been dealt in, your arm is marked.",
+    "some choices on this site get settled by a/b draw — the " +
+    "candidates and the deciding metric, out in the open.",
   metricLabel: "metric",
-  youLabel: "you got",
   winnerLabel: "winner",
   footnote: "assignments live in localStorage — no cookies, no tracking pixels",
 };
