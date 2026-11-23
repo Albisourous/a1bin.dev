@@ -66,8 +66,8 @@ bottom panels.
 - `SITE.links` + `SITE.graphCenter` — graph edges (undirected) and hub
   node. Nodes are the keys of `SITE.contents`; layout is deterministic —
   hub center, its links on an inner ring, the rest outer.
-- `SITE.gameFile` — `snowboard/game` is a real file in the tree but its
-  tab renders an ASCII game (hold SPACE to dive) instead of its text.
+- `SITE.gameFile` — `snowboard/game.txt` is a real file in the tree but
+  its tab renders an ASCII game (hold SPACE to dive) instead of text.
 
 ## 5. Components
 

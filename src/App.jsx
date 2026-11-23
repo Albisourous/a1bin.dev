@@ -49,9 +49,12 @@ export default function App() {
   const [chatH, setChatH] = useState(240);
   // Bottom terminal height — open by default like a real IDE.
   const [termH, setTermH] = useState(180);
-  // Chat and terminal start closed on mobile: editor gets the screen.
+  // Chat starts closed on mobile: editor gets the screen. Terminal
+  // stays open everywhere — the prompt is part of the landing view.
   const [chatOpen, setChatOpen] = useState(() => !startsMobile());
-  const [termOpen, setTermOpen] = useState(() => !startsMobile());
+  const [termOpen, setTermOpen] = useState(true);
+  // Mobile has no explorer column — the icon toggles a drawer instead.
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const mobile = useMedia(MOBILE_Q);
   const text = drafts[active] ?? (SITE.contents[active] || []).join("\n");
 
@@ -90,8 +93,9 @@ export default function App() {
         }}
       >
         <ActivityBar
-          explorerActive={active !== SITE.graphTab}
+          explorerActive={mobile ? explorerOpen : active !== SITE.graphTab}
           onOpenExplorer={() => {
+            if (mobile) return setExplorerOpen((o) => !o);
             // Explorer never closes — the icon only leaves the graph
             // view, returning to the most recent file tab.
             if (active === SITE.graphTab) {
@@ -104,7 +108,20 @@ export default function App() {
           graphActive={active === SITE.graphTab}
           onOpenGraph={() => open(SITE.graphTab)}
         />
-        <Explorer open={active} onOpen={open} />
+        <Explorer
+          drawer={explorerOpen}
+          open={active}
+          onOpen={(name) => {
+            open(name);
+            setExplorerOpen(false);
+          }}
+        />
+        {explorerOpen && (
+          <div
+            className="explorer-scrim"
+            onClick={() => setExplorerOpen(false)}
+          />
+        )}
         <ResizeHandle
           name="explorer"
           label="resize explorer"

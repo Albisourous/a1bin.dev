@@ -632,38 +632,13 @@ body.is-resizing-y {
     margin-bottom: s.$space-4;
   }
 
-  &__name {
-    display: flex;
-    align-items: baseline;
-    gap: 0.8em;
-    margin-bottom: s.$space-4;
-    color: var(--ink-dim);
-  }
-
-  &__input {
-    font: inherit;
-    color: var(--ink);
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--border);
-    outline: none;
-    padding: 0 0 1px;
-    width: 12em;
-
-    &::placeholder {
-      color: var(--noise);
-    }
-  }
-
   &__row {
     display: flex;
     gap: 1.5em;
-  }
 
-  &__rank {
-    color: var(--noise);
-    width: 2em;
-    flex: none;
+    &--head {
+      color: var(--noise);
+    }
   }
 
   &__dist {
@@ -672,8 +647,8 @@ body.is-resizing-y {
   }
 
   &__who {
-    width: 8em;
-    flex: none;
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -681,26 +656,6 @@ body.is-resizing-y {
 
   &__dim {
     color: var(--ink-dim);
-  }
-
-  &__foot {
-    margin-top: s.$space-4;
-    color: var(--noise);
-    font-size: 0.85em;
-  }
-
-  &__reset {
-    font: inherit;
-    color: inherit;
-    background: none;
-    border: none;
-    padding: 0;
-    margin-left: 1.5em;
-    cursor: pointer;
-
-    &:hover {
-      color: var(--accent);
-    }
   }
 }
 
@@ -929,6 +884,25 @@ body.is-resizing-y {
     display: none;
   }
 
+  // Drawer — slides over the editor; the activity bar stays reachable
+  // at left so the icon toggles it closed. Desktop ignores the class.
+  .explorer--open {
+    display: block;
+    position: fixed;
+    top: 34px;
+    bottom: 24px;
+    left: 44px;
+    width: min(75vw, 280px);
+    z-index: 20;
+  }
+
+  .explorer-scrim {
+    position: fixed;
+    inset: 34px 0 24px 0;
+    z-index: 19;
+    background: rgb(0 0 0 / 40%);
+  }
+
   .activitybar {
     grid-area: 1 / 1 / 6 / 2;
   }
@@ -959,8 +933,31 @@ body.is-resizing-y {
     border-top: 1px solid var(--border);
   }
 
-  .editor__ln {
-    width: 2.5em;
-    padding-right: 0.8em;
+  // Lines wrap instead of overflowing — on desktop the paper sizes to
+  // its longest line, which would force horizontal scroll on a phone.
+  .editor__paper {
+    min-width: 0;
+  }
+
+  .editor__pre,
+  .editor__line,
+  .editor__input {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  // Wrapped rows would misalign the numbers — hide the gutter and pad
+  // the body so text doesn't sit flush on the viewport edge.
+  .editor__gutter {
+    display: none;
+  }
+
+  .editor__body {
+    padding: s.$space-3;
+  }
+
+  // Board — tighter padding on phones.
+  .board {
+    padding: s.$space-4;
   }
 }

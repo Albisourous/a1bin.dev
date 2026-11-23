@@ -84,14 +84,14 @@ export const SITE = {
   activeTab: "README.md",
   graphCenter: "README.md",
 
-  // snowboard/game is a real file in ./site/ but swaps the editor body
-  // for the ASCII game (Snowboard.jsx) instead of rendering its text.
-  gameFile: "game",
+  // snowboard/game.txt is a real file in ./site/ but swaps the editor
+  // body for the ASCII game (Snowboard.jsx) instead of rendering text.
+  gameFile: "game.txt",
 
-  // snowboard/leaderboard is a real file in ./site/ but swaps the
+  // snowboard/leaderboard.txt is a real file in ./site/ but swaps the
   // editor body for the live top-runs board (Leaderboard.jsx) — same
   // trick as the game.
-  boardFile: "leaderboard",
+  boardFile: "leaderboard.txt",
 
   // "a links to b" — the graph renders each pair as an arrow a → b.
   links,
@@ -141,7 +141,7 @@ export const SITE = {
     { role: "user", text: "what are you working on right now?" },
     {
       role: "agent",
-      text: "Making this chat connect to my phone so I can chat with you :)",
+      text: "workong on connecting this chat to my phone :)",
     },
   ],
 

@@ -77,7 +77,7 @@ function Tree({ nodes, ctx, depth }) {
   );
 }
 
-export default function Explorer({ open, onOpen }) {
+export default function Explorer({ open, onOpen, drawer }) {
   // Local mutable copy of SITE.files — reorder drags rewrite it.
   const [tree, setTree] = useState(SITE.files);
   // Folders start expanded; names land here when collapsed.
@@ -154,7 +154,7 @@ export default function Explorer({ open, onOpen }) {
 
   return (
     <nav
-      className="explorer"
+      className={`explorer${drawer ? " explorer--open" : ""}`}
       aria-label="file explorer"
       onDragOver={(e) => e.preventDefault()}
       onDrop={() => {

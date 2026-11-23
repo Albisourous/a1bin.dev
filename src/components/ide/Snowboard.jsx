@@ -454,7 +454,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.fillText(
     TOUCH
       ? `${st.held ? "dropping" : "hold — drop"}`
-      : `${st.held ? "dropping" : "hold space — drop"} · space — again`,
+      : `${st.held ? "dropping" : "hold space — drop"}`,
     W - 12,
     22
   );
@@ -497,11 +497,11 @@ function draw(ctx, st, C, W, H, best) {
     } else {
       const who = riderName();
       ctx.fillText(
-        who ? `riding as ${who}` : "name your runs → leaderboard",
+        who ? `riding as ${who}` : "name your runs → leaderboard.txt",
         W / 2,
         H * 0.4 + 64
       );
-      ctx.fillText("scores → snowboard/leaderboard", W / 2, H * 0.4 + 82);
+      ctx.fillText("scores → snowboard/leaderboard.txt", W / 2, H * 0.4 + 82);
     }
     ctx.textAlign = "left";
   }

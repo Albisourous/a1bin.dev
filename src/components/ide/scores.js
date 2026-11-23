@@ -5,7 +5,7 @@
 // Contract to keep when the remote lands:
 //   row: { d, why, name, at }   meters, end cause, rider, epoch ms
 //   loadScores() → top 5, desc by d        → GET /scores
-//   postScore(row) → merge, persist, emit  → POST /scores
+//   postScore(row) → merge per rider, emit → POST /scores
 //   riderName()/saveName() → rider identity
 //   loadBest()/saveBest()  → personal best
 // The fns go async then; call sites just await and re-render on the
@@ -61,6 +61,17 @@ export const cleanName = (v) => {
   return n;
 };
 
+// one row per rider — each person's best run only. Anonymous runs
+// share one row until they get a name.
+const perRider = (scores) => {
+  const best = new Map();
+  for (const r of scores) {
+    const k = r.name ?? "";
+    if (!best.has(k) || r.d > best.get(k).d) best.set(k, r);
+  }
+  return [...best.values()].sort((a, b) => b.d - a.d);
+};
+
 // name the run — the rider key plus a name stamped onto board rows
 // that don't have one yet
 export const saveName = (n) => {
@@ -68,27 +79,18 @@ export const saveName = (n) => {
   try {
     localStorage.setItem(NAME_KEY, n);
     const scores = loadScores().map((r) => (r.name ? r : { ...r, name: n }));
-    localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+    // a stamped row can collide with a real one — collapse to one
+    localStorage.setItem(SCORES_KEY, JSON.stringify(perRider(scores).slice(0, TOP)));
   } catch {}
   window.dispatchEvent(new Event("snowboard:scores"));
 };
 
-// a finished run — top N kept; `at` (epoch ms) rides along for the
-// future global board
+// a finished run — the rider's row updates only when this run beats
+// their best. `at` (epoch ms) rides along for the future global board.
 export const postScore = (row) => {
-  const scores = loadScores();
-  scores.push(row);
-  scores.sort((a, b) => b.d - a.d);
+  const scores = perRider([...loadScores(), row]).slice(0, TOP);
   try {
-    localStorage.setItem(SCORES_KEY, JSON.stringify(scores.slice(0, TOP)));
-  } catch {}
-  window.dispatchEvent(new Event("snowboard:scores"));
-};
-
-export const resetBoard = () => {
-  try {
-    localStorage.removeItem(SCORES_KEY);
-    localStorage.removeItem(BEST_KEY);
+    localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
   } catch {}
   window.dispatchEvent(new Event("snowboard:scores"));
 };
