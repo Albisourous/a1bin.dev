@@ -4,12 +4,12 @@ Vite + React 19 + SCSS personal site, styled as a desktop IDE.
 Design doc: `docs/DESIGN.md`.
 
 - Dev: `npm run dev` · Build: `npm run build` · Preview: `npm run preview`
-- Local dev with the api: `npx vercel dev` runs the `api/` serverless
-  functions (snowboard leaderboard, agent chat) and serves the SPA.
-  Plain `npm run dev` serves only the SPA — the leaderboard then
-  silently falls back to its localStorage cache and chat falls back to
-  `SITE.cannedReplies`. Upstash env vars + `GROQ_API_KEY` for
-  `vercel dev` live in `.env.local` (gitignored).
+- Local dev with the api: `npm run dev` serves `api/` too — the
+  `apiDev` plugin in `vite.config.js` dispatches `/api/*` to the
+  functions via `ssrLoadModule` and loads `.env.local` (gitignored:
+  Upstash vars + `GROQ_API_KEY`) into `process.env`. Without env vars
+  the endpoints still run — the leaderboard falls back to its
+  localStorage cache and chat falls back to `SITE.cannedReplies`.
 - Chat agent: `api/chat.js` → Groq `openai/gpt-oss-20b`. Knowledge =
   `src/content/site/**` text + `api/resume.txt`, shipped via
   `vercel.json` `functions.includeFiles`. `api/resume.txt` is
@@ -30,3 +30,7 @@ Design doc: `docs/DESIGN.md`.
 - The editor is tabbed (`SITE.openTabs`/`activeTab`). `SITE.graphTab` is a
   pseudo-tab rendering `components/ide/Graph.jsx` — an Obsidian-style map
   built from `SITE.links`, centered on `SITE.graphCenter`.
+- `.prefixer/namespaces.md` maps search namespaces — start searches scoped
+  (`api:`, `ide:`, `content:`, `styles:`...) before widening to root.
+- `graphify-out/` (gitignored) holds a knowledge graph of the repo — treat
+  codebase questions as graph queries first; rebuild with `/graphify . --update`.

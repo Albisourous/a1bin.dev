@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +18,7 @@ const walk = (dir, base = "") =>
 const sitemap = () => ({
   name: "sitemap",
   generateBundle() {
-    const urls = ["/", "/GRAPH"].concat(
+    const urls = ["/", "/GRAPH", "/accessibility.html"].concat(
       walk("src/content/site").map((p) => `/${p.replace(/\.txt$/, "")}`)
     );
     this.emitFile({
@@ -60,6 +60,42 @@ const gameShare = () => ({
   },
 });
 
+// /api/* under `npm run dev` — vercel dev parity without the extra
+// process. loadEnv("") pulls every var from .env.local (KV_*,
+// GROQ_API_KEY) into process.env; vite only exposes VITE_* on its own.
+// ssrLoadModule reloads function edits like any other module.
+const apiDev = () => ({
+  name: "api-dev",
+  configureServer(server) {
+    Object.assign(
+      process.env,
+      loadEnv(server.config.mode, server.config.root, "")
+    );
+    server.middlewares.use("/api", (req, res) => {
+      const name = req.url?.split(/[/?]/).find(Boolean);
+      res.status = (code) => ((res.statusCode = code), res);
+      res.json = (body) => {
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify(body));
+      };
+      const run = async () => {
+        const chunks = [];
+        for await (const c of req) chunks.push(c);
+        req.body = chunks.length
+          ? JSON.parse(Buffer.concat(chunks).toString())
+          : {};
+        const { default: handler } = await server.ssrLoadModule(
+          `/api/${name}.js`
+        );
+        await handler(req, res);
+      };
+      run().catch((e) =>
+        res.status(404).json({ error: `api dev: ${e.message}` })
+      );
+    });
+  },
+});
+
 export default defineConfig({
-  plugins: [react(), sitemap(), gameShare()],
+  plugins: [react(), sitemap(), gameShare(), apiDev()],
 });
