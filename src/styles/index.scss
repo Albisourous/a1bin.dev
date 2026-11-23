@@ -781,6 +781,15 @@ body.is-resizing-y {
       color: var(--select-text);
       border-bottom-right-radius: 2px;
     }
+
+    a {
+      color: inherit;
+      border-bottom: 1px dashed currentcolor;
+
+      &:hover {
+        border-bottom-style: solid;
+      }
+    }
   }
 
   &__form {

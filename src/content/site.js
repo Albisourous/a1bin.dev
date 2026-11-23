@@ -4,6 +4,8 @@
 // The files shown in the IDE are real files under ./site/ — the explorer
 // mirrors that folder and the editor renders their contents.
 
+import { email, mailto } from "./contact.js";
+
 const raw = import.meta.glob(["./site/**/*", "!./site/**/*.pdf"], {
   query: "?raw",
   import: "default",
@@ -140,6 +142,7 @@ export const SITE = {
       url: "https://www.instagram.com/adventureralbi/",
       icon: "instagram",
     },
+    { name: "email", url: mailto, icon: "mail" },
   ],
 
   // Terminal — fake shell pinned to the bottom of the workbench, open
@@ -160,15 +163,13 @@ export const SITE = {
     },
   ],
 
-  // Replies the agent cycles through for anything the user types.
-  cannedReplies: [
-    "try opening a file in the explorer",
-    "click a node in the graph — they're files",
-    "everything real lives in README.md",
-    "static site — i only know what's in the tree",
-    "the tree is small — still growing",
-    "there's a game hiding in the snowboard folder",
-  ],
+  // Contact — chat replies that mention this address get linkified into
+  // `mailto` so one click opens a ready-to-send draft (./contact.js).
+  email,
+  mailto,
+
+  // When /api/chat fails — out of tokens, no key, or a request error.
+  fallbackReply: `i'm out of tokens :(. email albin at ${email} for the answer.`,
 
   theme: {
     label: "theme",

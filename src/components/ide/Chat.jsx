@@ -1,6 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "../../content/site.js";
 
+const LINK_RE = /([\w.+-]+@[\w-]+\.[\w.-]+|https?:\/\/[^\s]+)/g;
+const EMAIL_RE = /^[\w.+-]+@[\w-]+\.[\w.-]+$/;
+
+// Agent replies are plain text; emails and URLs become real anchors.
+// Albin's own address links to SITE.mailto — a prefilled draft —
+// other emails get a plain mailto:.
+function renderText(text) {
+  return text.split(LINK_RE).map((part, i) => {
+    if (EMAIL_RE.test(part)) {
+      return (
+        <a key={i} href={part === SITE.email ? SITE.mailto : `mailto:${part}`}>
+          {part}
+        </a>
+      );
+    }
+    if (/^https?:\/\//.test(part)) {
+      return (
+        <a key={i} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 // The agent panel: opening conversation from SITE.chat, real replies
 // from /api/chat (Groq, server-side). When the API isn't there — plain
 // `vite dev`, no key, or an error — it falls back to canned replies.
@@ -8,7 +34,6 @@ export default function Chat({ onClose }) {
   const [msgs, setMsgs] = useState(SITE.chat);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
-  const replyIdx = useRef(0);
   const endRef = useRef(null);
 
   useEffect(() => {
@@ -33,8 +58,7 @@ export default function Chat({ onClose }) {
       if (!r.ok) throw new Error(await r.text());
       reply = (await r.json()).reply;
     } catch {
-      reply =
-        SITE.cannedReplies[replyIdx.current++ % SITE.cannedReplies.length];
+      reply = SITE.fallbackReply;
     }
     setMsgs((m) => [...m.slice(0, -1), { role: "agent", text: reply }]);
     setBusy(false);
@@ -51,7 +75,7 @@ export default function Chat({ onClose }) {
       <div className="chat__msgs">
         {msgs.map((m, i) => (
           <div key={i} className={`chat__msg chat__msg--${m.role}`}>
-            {m.text}
+            {renderText(m.text)}
           </div>
         ))}
         <div ref={endRef} />

@@ -42,8 +42,10 @@ function Inline({ text, onOpen }) {
   while ((m = re.exec(text))) {
     if (m.index > last) pushText(text.slice(last, m.index));
     if (m[1] !== undefined) {
+      // Albin's own mailto upgrades to SITE.mailto — the prefilled draft.
+      const href = m[2] === `mailto:${SITE.email}` ? SITE.mailto : m[2];
       out.push(
-        <a key={key++} href={m[2]} target="_blank" rel="noreferrer">
+        <a key={key++} href={href} target="_blank" rel="noreferrer">
           {m[1]}
         </a>
       );
