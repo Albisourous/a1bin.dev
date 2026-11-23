@@ -1,0 +1,706 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  cleanName,
+  loadBest,
+  postScore,
+  riderName,
+  saveBest,
+  saveName,
+} from "./scores.js";
+
+// ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
+// to drop into the downhill and build speed; release to float off the
+// crest. R restarts. The scene is drawn as vectors so it reads as a
+// game; the sky specks, pines and HUD stay literal Mononoki text, and
+// a dot-matrix overlay keeps the terminal texture. Land on a downslope
+// transition for a "perfect slide" — flat landings bounce, upslope
+// landings kill your speed, and a bad-angle landing wipes you out.
+// Each run races the sun: 5 seconds of daylight, ringed-dot tokens on
+// the slope buy +1s each, and night or a slam ends the run while the
+// hills steepen with distance.
+
+const LEAD = 13; // rider's distance from the left edge, world units
+const VIEW_W = 52; // world units visible across the canvas
+const VIEW_H = 26; // world units of vertical range
+
+// hills steepen with distance — a run has its own difficulty curve
+const hill = (x) =>
+  (1 + Math.min(1, Math.max(0, x) * 0.001)) *
+  (5.2 * Math.sin(x * 0.072) +
+    3.0 * Math.sin(x * 0.027 + 1.7) +
+    1.5 * Math.sin(x * 0.13 + 4.2));
+const slope = (x) => (hill(x + 0.4) - hill(x - 0.4)) / 0.8;
+// the run starts on the first crest — lift drops you on a hilltop
+const START = (() => {
+  for (let x = 0.5; x < 200; x += 0.25)
+    if (slope(x - 0.5) > 0 && slope(x + 0.5) <= 0) return x;
+  return 0;
+})();
+
+const G_FLOAT = 16; // released — floaty, hangs in the air
+const G_DIVE = 70; // held — drops hard
+const PUSH = 50; // slope → speed coupling on the snow
+const V_MIN = 10;
+const V_MAX = 55;
+const RUN_LEN = 5; // seconds of daylight per run
+const DAY_CAP = 30; // pickups can only push the sun this far out
+const INTRO = 0.55; // lift ride before the run starts
+
+const fresh = () => ({
+  x: START,
+  y: hill(START),
+  vy: 0,
+  vx: 14,
+  cam: hill(START),
+  ground: true,
+  held: false,
+  combo: 0, // consecutive perfect slides
+  fx: null, // floating feedback label {x, y, t, text, kind}
+  intro: INTRO, // riding the lift in — the clock hasn't started
+  t: 0, // seconds ridden — night falls at dayLen
+  dayLen: RUN_LEN, // sun pickups buy more daylight
+  collected: new Set(), // grabbed sun tokens
+  death: null, // "wiped out" on a bad-angle slam
+  crashed: false, // rider lies flat on the snow
+  over: false,
+  recorded: false, // best already saved for this run
+  naming: false, // typing a rider name on the over screen
+  nameBuf: "",
+});
+
+const hash = (n) => {
+  n = (n * 2654435761) >>> 0;
+  return (n ^ (n >> 13)) >>> 0;
+};
+
+// sun tokens thin out with distance until a plateau — from ~700m on
+// the spacing holds, so a run that keeps speed and keeps grabbing
+// tokens stays ahead of the sun forever. Miss a stretch and dusk wins.
+const sunGap = (n) => Math.min(36, Math.round((29 + Math.floor(Math.max(0, n) / 45)) / 1.25));
+// token height at world x. Five of six sit on a jump arc: trace
+// the float ballistic off every crest in the run-up at a good rider
+// speed and keep the highest reach at x=n — grabbing one means
+// leaving the snow. The rest stay at boot-to-torso level.
+const tokenY = (n, h) => {
+  if ((h >> 7) % 6 === 0) return hill(n) + 0.7 + ((h >> 4) % 3) * 0.5;
+  let y = hill(n) + 2.2;
+  for (let x0 = n - 16; x0 < n - 3; x0++) {
+    const v = 36;
+    const vy0 = Math.min(Math.max(0, slope(x0 - 0.6)) * v * 1.25, 28);
+    const t = (n - x0) / v;
+    y = Math.max(y, hill(x0) + vy0 * t - 0.5 * G_FLOAT * t * t);
+  }
+  return y;
+};
+
+function step(st, dt) {
+  if (st.intro > 0) {
+    st.intro -= dt;
+    return;
+  }
+  st.t += dt;
+  if (st.t >= st.dayLen) {
+    st.over = true;
+    return;
+  }
+  st.x += st.vx * dt;
+  const s = slope(st.x);
+  const g = st.held ? G_DIVE : G_FLOAT;
+  if (st.ground) {
+    const y2 = hill(st.x);
+    // launch when the ballistic arc stays above the new ground —
+    // i.e. the hill curved away under the board
+    if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
+      st.ground = false;
+      // lip kick — a sharp crest throws extra height, like a real kicker
+      st.vy = Math.min(st.vy * 1.25, 28);
+      st.vy -= g * dt;
+      st.y += st.vy * dt;
+    } else {
+      st.y = y2;
+      st.vy = s * st.vx;
+      if (s < 0) st.vx += -s * PUSH * (st.held ? 2 : 1) * dt;
+      else st.vx += -s * PUSH * dt;
+      st.vx += (13 - st.vx) * 0.5 * dt;
+    }
+  } else {
+    st.vy -= g * dt;
+    st.y += st.vy * dt;
+    const y2 = hill(st.x);
+    if (st.y <= y2) {
+      const s2 = slope(st.x);
+      // wipeout — land badly mismatched to the slope and you slam.
+      // steep dives are fine mid-air; it's the landing angle that kills.
+      if (Math.abs(Math.atan2(st.vy, st.vx) - Math.atan(s2)) > 1.15) {
+        st.ground = true;
+        st.crashed = true;
+        st.death = "wiped out";
+        st.over = true;
+        st.y = y2;
+        st.fx = { x: st.x, y: st.y, t: 0, text: "slam!", kind: "bad" };
+      } else if (s2 < -0.28) {
+        st.ground = true;
+        st.y = y2;
+        st.vy = s2 * st.vx;
+        st.combo += 1;
+        st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
+        st.fx = {
+          x: st.x,
+          y: st.y,
+          t: 0,
+          text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
+          kind: "good",
+        };
+      } else if (s2 > 0.28) {
+        st.ground = true;
+        st.y = y2;
+        st.vy = s2 * st.vx;
+        st.combo = 0;
+        st.vx += -s2 * 9;
+        st.fx = { x: st.x, y: st.y, t: 0, text: "rough", kind: "bad" };
+      } else if (st.vy < -7) {
+        // flat landing with real impact — bounce instead of sliding
+        st.combo = 0;
+        st.vy = 5;
+        st.vx *= 0.94;
+        st.fx = { x: st.x, y: st.y, t: 0, text: "bounce", kind: "bad" };
+      } else {
+        st.ground = true;
+        st.y = y2;
+        st.vy = s2 * st.vx;
+        st.combo = 0;
+      }
+    }
+  }
+  // time tokens — strung along jump arcs and the snow; the rider's
+  // body has to touch one. Each buys a second of daylight.
+  const pn = Math.round(st.x);
+  const ph = hash(pn);
+  if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
+    const py = tokenY(pn, ph);
+    if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
+      st.collected.add(pn);
+      st.dayLen = Math.min(DAY_CAP, st.dayLen + 1);
+      st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
+    }
+  }
+  if (st.fx && (st.fx.t += dt) > 0.9) st.fx = null;
+  // fever — chained slides unlock a higher top speed
+  const vmax = st.combo >= 3 ? V_MAX + 8 : V_MAX;
+  st.vx = Math.min(vmax, Math.max(V_MIN, st.vx));
+  st.cam += (st.y - st.cam) * Math.min(1, 8 * dt);
+}
+
+const FONT = '"Mononoki", monospace';
+const TOUCH = window.matchMedia?.("(pointer: coarse)").matches;
+
+// the sky sun — circle + 8 rays. Pickups are drawn by drawToken so the
+// two never get confused.
+function drawSun(ctx, x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(a) * (r + 2), y + Math.sin(a) * (r + 2));
+    ctx.lineTo(x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5));
+    ctx.stroke();
+  }
+}
+
+// a time token — ringed dot, reads like a coin. Each is worth +1s.
+function drawToken(ctx, x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function draw(ctx, st, C, W, H, best) {
+  const sx = W / VIEW_W;
+  const sy = H / VIEW_H;
+  const anchorY = H * 0.62;
+  const camX = st.x - LEAD;
+  const ty = (h) => anchorY - (h - st.cam) * sy;
+  ctx.clearRect(0, 0, W, H);
+
+  // sun — sinks toward the horizon as the run runs out
+  const day = Math.min(1, st.t / st.dayLen);
+  ctx.strokeStyle = C.accent2;
+  ctx.lineWidth = 2;
+  drawSun(ctx, W * 0.82, 30 + day * anchorY * 0.7, 7);
+
+  // sky specks — faint ' and . drifting at half speed. Small and plain
+  // on purpose: nothing in the sky should read as a pickup.
+  ctx.fillStyle = C.noise;
+  ctx.font = `10px ${FONT}`;
+  const n0 = Math.floor(camX * 0.5);
+  for (let n = n0; n < n0 + VIEW_W * 2 + 4; n++) {
+    const h = hash(n);
+    if (h % 23 !== 0) continue;
+    ctx.fillText(h % 2 ? "'" : ".", (n - camX * 0.5) * sx, 10 + ((h >> 5) % Math.round(anchorY * 0.5)));
+  }
+
+  // main slope — filled snow body + bright surface line
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let p = 0; p <= W; p += 2) ctx.lineTo(p, ty(hill(camX + p / sx)));
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fillStyle = C.raise;
+  ctx.fill();
+  ctx.beginPath();
+  for (let p = 0; p <= W; p += 2) {
+    const y = ty(hill(camX + p / sx));
+    p === 0 ? ctx.moveTo(p, y) : ctx.lineTo(p, y);
+  }
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // pines planted on the slope — landmarks sell the speed
+  ctx.fillStyle = C.dim;
+  ctx.font = `11px ${FONT}`;
+  ctx.textAlign = "center";
+  for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
+    if (hash(n) % 53 !== 0) continue;
+    const tx = (n - camX) * sx;
+    const gy = ty(hill(n));
+    if (gy < 30 || gy > H - 8) continue;
+    ctx.fillText("/\\", tx, gy - 24);
+    ctx.fillText("/||\\", tx, gy - 14);
+    ctx.fillText("||", tx, gy - 5);
+  }
+
+  // distance flags — a milestone planted on the slope every 200 m
+  ctx.fillStyle = C.noise;
+  for (let n = Math.ceil((camX - START) / 200) * 200 + START; n <= camX + VIEW_W; n += 200) {
+    if (n <= START) continue;
+    const tx = (n - camX) * sx;
+    const gy = ty(hill(n));
+    if (gy < 44 || gy > H - 8) continue;
+    ctx.fillText("|", tx, gy - 6);
+    ctx.fillText(`${n - START}m`, tx, gy - 32);
+  }
+
+  // time tokens — ringed dots bobbing on the snow, +1s each
+  ctx.strokeStyle = C.accent2;
+  ctx.fillStyle = C.accent2;
+  ctx.lineWidth = 1.4;
+  for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
+    const h = hash(n);
+    if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
+    const gy = ty(tokenY(n, h)) + Math.sin(st.t * 3 + n) * 1.5;
+    drawToken(ctx, (n - camX) * sx, gy);
+  }
+
+  // rider — snowboarder + board, rotated with the slope / flight path.
+  // The intro rides a lift chair in from the upper left first.
+  const px = LEAD * sx;
+  const py = ty(st.y);
+  const intro = st.intro > 0 ? 1 - st.intro / INTRO : 1;
+  if (st.intro > 0) {
+    // unload point just above the start knoll
+    const ux = px - 4;
+    const uy = py - 34;
+    // cable rising to the unload bullwheel
+    ctx.strokeStyle = C.dim;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-20, uy + 36);
+    ctx.lineTo(ux + 24, uy - 6);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(ux + 24, uy - 6, 4, 0, Math.PI * 2);
+    ctx.stroke();
+    // chair rides the cable in, then keeps past the wheel once the
+    // rider hopped off
+    const q = Math.min(1.35, intro / 0.8);
+    const cx = -20 + q * (ux + 44);
+    const cy = uy + 36 - q * 42;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy + 7);
+    ctx.moveTo(cx - 5, cy + 13);
+    ctx.lineTo(cx + 6, cy + 13);
+    ctx.lineTo(cx + 6, cy + 7);
+    ctx.stroke();
+    if (intro < 0.8) {
+      // seated rider — hunched forward, board dangling
+      ctx.strokeStyle = C.accent;
+      ctx.fillStyle = C.accent;
+      ctx.beginPath();
+      ctx.arc(cx - 1, cy + 4.5, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 1, cy + 7);
+      ctx.lineTo(cx - 1, cy + 12);
+      ctx.lineTo(cx + 3, cy + 12.5);
+      ctx.lineTo(cx + 3.5, cy + 17);
+      ctx.stroke();
+      ctx.fillRect(cx - 3, cy + 17, 10, 2.4);
+    }
+  }
+  if (intro >= 0.8) {
+  const ang = st.crashed
+    ? -Math.atan(slope(st.x)) + 1.35 // ragdoll flat against the slope
+    : st.ground
+      ? -Math.atan(slope(st.x))
+      : Math.max(-1.15, Math.min(1.15, -Math.atan2(st.vy, st.vx)));
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(ang);
+
+  // snowboard — long rounded deck
+  ctx.fillStyle = C.accent;
+  ctx.beginPath();
+  ctx.roundRect(-17, -3.5, 34, 3.5, 1.75);
+  ctx.fill();
+
+  // snowboarder — vector stick figure in a riding stance. Arms out for
+  // balance in the air; one hand grabs the nose when diving.
+  ctx.strokeStyle = C.accent;
+  ctx.fillStyle = C.accent;
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  const leg = (kx, ky, bx) => {
+    ctx.beginPath();
+    ctx.moveTo(-1, -11); // hip
+    ctx.lineTo(kx, ky);
+    ctx.lineTo(bx, -4);
+    ctx.stroke();
+  };
+  leg(4, -7, 6); // front leg, knee forward
+  leg(-5, -6.5, -6); // back leg
+  ctx.beginPath(); // torso, leaning into the ride
+  ctx.moveTo(-1, -11);
+  ctx.lineTo(3, -19);
+  ctx.stroke();
+  ctx.beginPath(); // head
+  ctx.arc(4.5, -22.5, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath(); // arms
+  if (!st.ground && st.held && !st.crashed) {
+    // dive — reach down and grab the nose
+    ctx.moveTo(3, -19);
+    ctx.lineTo(9, -4.5);
+    ctx.moveTo(3, -19);
+    ctx.lineTo(-8, -15);
+  } else if (!st.ground || st.crashed) {
+    // airborne or sprawled on the snow — arms out
+    ctx.moveTo(3, -19);
+    ctx.lineTo(11, -15);
+    ctx.moveTo(3, -19);
+    ctx.lineTo(-9, -16);
+  } else {
+    // cruising — relaxed tuck, trailing arm
+    ctx.moveTo(3, -19);
+    ctx.lineTo(8, -14);
+    ctx.moveTo(3, -19);
+    ctx.lineTo(-7, -13);
+  }
+  ctx.stroke();
+  ctx.restore();
+  }
+
+  // floating landing feedback — rises and fades
+  if (st.fx) {
+    const a = 1 - st.fx.t / 0.9;
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.fillStyle =
+      st.fx.kind === "good" ? C.accent : st.fx.kind === "time" ? C.accent2 : C.dim;
+    ctx.font = `bold 13px ${FONT}`;
+    ctx.textAlign = "center";
+    ctx.fillText(
+      st.fx.text,
+      (st.fx.x - camX) * sx,
+      ty(st.fx.y) - 14 - st.fx.t * 26
+    );
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left";
+  }
+
+  // dusk — the scene dims toward the page background late in the run
+  const dusk = st.over
+    ? 0.6
+    : Math.max(0, Math.min(0.55, ((st.t - (st.dayLen - 18)) / 18) * 0.55));
+  if (dusk > 0) {
+    ctx.globalAlpha = dusk;
+    ctx.fillStyle = C.bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  // HUD — monospace text, same voice as the rest of the IDE
+  ctx.textAlign = "left";
+  ctx.font = `12px ${FONT}`;
+  ctx.fillStyle = C.dim;
+  const hud = `${st.vx.toFixed(0)} m/s   ${Math.floor(st.x - START)} m   ${Math.max(0, Math.ceil(st.dayLen - st.t))}s`;
+  ctx.fillText(hud, 12, 22);
+  if (st.combo > 1) {
+    ctx.fillStyle = st.combo >= 3 ? C.accent : C.dim;
+    ctx.fillText(
+      `   ${st.combo >= 3 ? "fever" : "slide"} x${st.combo}`,
+      12 + ctx.measureText(hud).width,
+      22
+    );
+    ctx.fillStyle = C.dim;
+  }
+  ctx.textAlign = "right";
+  ctx.fillStyle = st.held ? C.accent : C.dim;
+  ctx.fillText(
+    TOUCH
+      ? `${st.held ? "dropping" : "hold — drop"}`
+      : `${st.held ? "dropping" : "hold space — drop"} · space — again`,
+    W - 12,
+    22
+  );
+  ctx.textAlign = "left";
+
+  // control hint — up during the lift ride, lingers into the first
+  // stretch of the run
+  if (st.intro > 0 || st.t < 1.2) {
+    ctx.textAlign = "center";
+    ctx.font = `bold 14px ${FONT}`;
+    ctx.fillStyle = C.ink;
+    ctx.fillText(
+      TOUCH ? "press + hold — drop" : "hold space — drop",
+      W / 2,
+      H * 0.42
+    );
+    ctx.textAlign = "left";
+  }
+
+  // night fell — run over, show the distance and the restart hint
+  if (st.over) {
+    ctx.textAlign = "center";
+    ctx.font = `bold 16px ${FONT}`;
+    ctx.fillStyle = C.accent2;
+    ctx.fillText(st.death ?? "night fell", W / 2, H * 0.4);
+    ctx.font = `13px ${FONT}`;
+    ctx.fillStyle = C.ink;
+    ctx.fillText(`${Math.floor(st.x - START)} m   best ${best} m`, W / 2, H * 0.4 + 22);
+    ctx.fillStyle = C.dim;
+    ctx.fillText(TOUCH ? "tap snow — ride again" : "space — ride again", W / 2, H * 0.4 + 42);
+    if (st.naming) {
+      ctx.fillStyle = C.accent;
+      ctx.fillText(
+        `name: ${st.nameBuf}${Math.floor(Date.now() / 500) % 2 ? "_" : ""}`,
+        W / 2,
+        H * 0.4 + 64
+      );
+      ctx.fillStyle = C.dim;
+      ctx.fillText("enter — save", W / 2, H * 0.4 + 82);
+    } else {
+      const who = riderName();
+      ctx.fillText(
+        who ? `riding as ${who}` : "name your runs → leaderboard",
+        W / 2,
+        H * 0.4 + 64
+      );
+      ctx.fillText("scores → snowboard/leaderboard", W / 2, H * 0.4 + 82);
+    }
+    ctx.textAlign = "left";
+  }
+}
+
+const commitName = (st) => {
+  st.naming = false;
+  saveName(cleanName(st.nameBuf));
+  st.nameBuf = "";
+};
+
+export default function Snowboard() {
+  const sim = useRef(null);
+  if (!sim.current) sim.current = fresh();
+  const best = useRef(loadBest());
+  const wrapRef = useRef(null);
+  const canvasRef = useRef(null);
+  // Touch can't type on a canvas — the name prompt is a real input.
+  const [touchNaming, setTouchNaming] = useState(false);
+  const [touchBuf, setTouchBuf] = useState("");
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const read = () => {
+      const cs = getComputedStyle(document.documentElement);
+      const v = (n) => cs.getPropertyValue(n).trim();
+      return {
+        ink: v("--ink"),
+        dim: v("--ink-dim"),
+        noise: v("--noise"),
+        accent: v("--accent"),
+        accent2: v("--accent-2"),
+        raise: v("--bg-raise"),
+        bg: v("--bg"),
+      };
+    };
+    let colors = read();
+    const mo = new MutationObserver(() => (colors = read()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    const size = () => {
+      const r = wrapRef.current.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    size();
+    const ro = new ResizeObserver(size);
+    ro.observe(wrapRef.current);
+
+    let raf;
+    let last = performance.now();
+    const tick = (t) => {
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+      if (!sim.current.over) step(sim.current, dt);
+      if (sim.current.over && !sim.current.recorded) {
+        sim.current.recorded = true;
+        const d = Math.floor(sim.current.x - START);
+        if (d > best.current) {
+          best.current = d;
+          saveBest(d);
+        }
+        // leaderboard — top 5 runs, kept locally for now
+        postScore({
+          d,
+          why: sim.current.death ?? "night fell",
+          name: riderName() || null,
+          at: Date.now(),
+        });
+        // name prompt — only while there's no rider name saved. Once
+        // given, it sticks in localStorage until storage is cleared;
+        // later runs never ask again.
+        if (!riderName()) {
+          if (!TOUCH) {
+            sim.current.naming = true;
+            sim.current.nameBuf = "";
+          } else {
+            setTouchNaming(true);
+            setTouchBuf("");
+          }
+        }
+      }
+      const r = wrapRef.current.getBoundingClientRect();
+      draw(ctx, sim.current, colors, r.width, r.height, best.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    const editable = (t) =>
+      t instanceof Element && t.closest("input, textarea, [contenteditable]");
+    const down = (e) => {
+      if (editable(e.target)) return;
+      const st = sim.current;
+      // space restarts — but only on a fresh press. A space still held
+      // from the run (held=true until keyup) must not skip the name
+      // prompt the instant it appears.
+      if (st.over && e.code === "Space" && !st.held) {
+        e.preventDefault();
+        setTouchNaming(false);
+        Object.assign(st, fresh(), { held: true });
+        return;
+      }
+      if (st.naming) {
+        // r skips the prompt into a fresh run — names with 'r' go in
+        // via the leaderboard file instead
+        if (e.code === "KeyR") {
+          st.naming = false;
+          st.nameBuf = "";
+          Object.assign(st, fresh(), { held: st.held });
+        } else if (e.code === "Enter") commitName(st);
+        else if (e.code === "Escape") {
+          st.naming = false;
+          st.nameBuf = "";
+        } else if (e.code === "Backspace") st.nameBuf = st.nameBuf.slice(0, -1);
+        else if (
+          e.key.length === 1 &&
+          e.code !== "Space" &&
+          st.nameBuf.length < 12 &&
+          /^[a-z0-9 .'_-]$/i.test(e.key)
+        ) {
+          st.nameBuf += e.key;
+        }
+        e.preventDefault();
+        return;
+      }
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!st.over) st.held = true;
+      } else if (e.code === "KeyR") {
+        Object.assign(st, fresh(), { held: st.held });
+      }
+    };
+    const up = (e) => {
+      if (e.code === "Space") sim.current.held = false;
+    };
+    const blur = () => (sim.current.held = false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
+
+  const commitTouch = () => {
+    saveName(cleanName(touchBuf));
+    setTouchBuf("");
+    setTouchNaming(false);
+  };
+
+  return (
+    <div
+      ref={wrapRef}
+      className="game"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        if (sim.current.over) {
+          // tapping the snow skips the prompt and rides again
+          setTouchNaming(false);
+          Object.assign(sim.current, fresh());
+        }
+        sim.current.held = true;
+      }}
+      onPointerUp={() => (sim.current.held = false)}
+      onPointerCancel={() => (sim.current.held = false)}
+    >
+      <canvas ref={canvasRef} className="game__canvas" aria-label="ascii snowboard game" />
+      {touchNaming && (
+        <div className="game__name" onPointerDown={(e) => e.stopPropagation()}>
+          <input
+            className="game__input"
+            value={touchBuf}
+            onChange={(e) => setTouchBuf(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && commitTouch()}
+            placeholder="name your run"
+            maxLength={16}
+            enterKeyHint="done"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoFocus
+          />
+          <button className="game__save" onClick={commitTouch}>
+            save
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

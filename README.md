@@ -1,9 +1,8 @@
 # a1bin.dev
 
-Personal site for Albin Shrestha. The whole page is a Windows-classic
-Notepad window displaying `a1.bin` — a corrupted binary whose printable
-strings are the site content. Boot intertitle is a Lily Chou-Chou-style
-ghost-text cut; the desktop wallpaper is pure-CSS Frutiger Aero.
+Personal site for Albin Shrestha, rendered as a desktop IDE. Explorer on
+the left (fake file tree — `src/ABOUT.md` is the site content), editor
+in the middle, agent chat panel on the right. Dark first, light optional.
 
 See `docs/DESIGN.md` for the full design doc.
 
@@ -27,12 +26,13 @@ npm run preview  # serve the build
 | What                    | Where                                  |
 |-------------------------|----------------------------------------|
 | Name, bio, links, copy  | `src/content/site.js`                  |
-| Colors                  | `src/styles/tokens/_colors.scss`       |
+| Theme (dark/light)      | `src/styles/tokens/_colors.scss`       |
 | Fonts, sizes            | `src/styles/tokens/_type.scss`         |
-| Chrome metrics          | `src/styles/tokens/_chrome.scss`       |
-| Mojibake texture        | `src/lib/charset.js` (weights)         |
-| Document layout         | `src/lib/document.js`                  |
-| Bevels / scrollbars     | `src/styles/mixins/`                   |
+| File tree + file copy   | `SITE.files`/`SITE.contents` in site.js|
+| Chat script + replies   | `SITE.chat`/`SITE.cannedReplies`       |
+
+Theme: follows the OS; `[t] theme` in the footer toggles and persists to
+localStorage. `?theme=dark|light` in the URL overrides.
 
 Deploy: any static host serves `dist/` (GitHub Pages, Cloudflare Pages,
 Vercel, Netlify). Domain is registered on Spaceship — point its DNS at the

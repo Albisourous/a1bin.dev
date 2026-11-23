@@ -6,7 +6,8 @@
   line-height: t.$leading-doc;
 }
 
-@mixin chrome-text {
-  font-family: t.$font-chrome;
-  font-size: t.$size-chrome;
+@mixin ui-text {
+  font-family: t.$font-ui;
+  font-size: t.$size-ui;
+  line-height: 1.4;
 }

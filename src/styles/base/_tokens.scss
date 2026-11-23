@@ -1,9 +1,21 @@
+@use "sass:map";
 @use "../tokens/colors" as c;
 
-// Emit every token as a CSS custom property so chrome and JS can both
-// read the single source of truth.
-:root {
-  @each $name, $value in c.$colors {
+// Emit theme tokens as CSS custom properties.
+// Default dark; only [data-theme="light"] flips.
+
+@mixin emit($theme) {
+  @each $name, $value in $theme {
     --#{$name}: #{$value};
   }
+}
+
+:root {
+  color-scheme: dark;
+  @include emit(c.$dark);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  @include emit(c.$light);
 }

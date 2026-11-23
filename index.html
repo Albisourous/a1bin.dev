@@ -3,9 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/mononoki-Regular.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/mononoki-Bold.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="a1bin.dev — the printable strings of a corrupted binary." />
-    <title>a1.bin - Notepad</title>
+    <meta
+      name="description"
+      content="Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE."
+    />
+    <title>a1bin.dev — Albin Shrestha</title>
+    <script>
+      // Set theme before first paint; default dark.
+      // ?theme=dark|light overrides localStorage for shareable links.
+      try {
+        var t =
+          new URLSearchParams(location.search).get("theme") ||
+          localStorage.getItem("a1-theme");
+        if (t === "light" || t === "dark")
+          document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,63 +1,163 @@
-// All copy for the site lives here. Edit strings; nothing else needs to change.
+// All copy for the site lives here. The site is an IDE: explorer tree on
+// the left, one file open in the editor, agent chat on the right.
+//
+// The files shown in the IDE are real files under ./site/ — the explorer
+// mirrors that folder and the editor renders their contents.
+
+const raw = import.meta.glob(["./site/**/*", "!./site/**/*.pdf"], {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+// PDFs aren't text — imported as asset URLs; the editor iframes them in
+// a viewer tab instead of rendering bytes (see Editor.jsx).
+const pdfRaw = import.meta.glob("./site/**/*.pdf", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
+const pdfs = {};
+for (const [path, url] of Object.entries(pdfRaw)) {
+  pdfs[path.split("/").pop()] = url;
+}
+
+// File contents — arrays of lines, keyed by filename.
+const contents = {};
+for (const [path, text] of Object.entries(raw)) {
+  contents[path.split("/").pop()] = text.replace(/\n$/, "").split("\n");
+}
+
+// Explorer tree built from the real folder layout, folders first.
+const root = { type: "folder", name: "a1bin.dev", children: [] };
+for (const path of [...Object.keys(raw), ...Object.keys(pdfRaw)].sort()) {
+  const parts = path.replace("./site/", "").split("/");
+  let children = root.children;
+  for (const part of parts.slice(0, -1)) {
+    let folder = children.find((c) => c.type === "folder" && c.name === part);
+    if (!folder) {
+      folder = { type: "folder", name: part, children: [] };
+      children.push(folder);
+    }
+    children = folder.children;
+  }
+  children.push({ type: "file", name: parts.at(-1) });
+}
+const sortTree = (node) => {
+  node.children?.sort((a, b) =>
+    a.type === b.type ? a.name.localeCompare(b.name) : a.type === "folder" ? -1 : 1
+  );
+  node.children?.forEach(sortTree);
+};
+sortTree(root);
+
+// Obsidian-style edges, derived automatically: a file links to every
+// other file whose name appears in its text. Word-boundary match so
+// "read" or "agents" in prose doesn't count, and no self-links.
+const links = {};
+const names = [
+  ...Object.keys(contents),
+  ...Object.keys(pdfRaw).map((p) => p.split("/").pop()),
+];
+for (const [name, lines] of Object.entries(contents)) {
+  const text = lines.join("\n");
+  links[name] = names.filter(
+    (other) =>
+      other !== name &&
+      new RegExp(
+        `\\b${other.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`
+      ).test(text)
+  );
+}
+
+// `help` output — seeds the terminal scrollback and answers the live command.
+const termHelp =
+  "ls · cat <file> · open <file> · whoami · pwd · echo · clear";
 
 export const SITE = {
-  file: {
-    name: "a1.bin",
-    magic: "A1.STORE",
-    version: "ai memory bank",
+  domain: "a1bin.dev",
+
+  // Editor tabs. README.md is the landing view; the graph tab sits to
+  // its left, Resume.pdf to its right.
+  graphTab: "GRAPH",
+  openTabs: ["GRAPH", "README.md", "Resume.pdf"],
+  activeTab: "README.md",
+  graphCenter: "README.md",
+
+  // snowboard/game is a real file in ./site/ but swaps the editor body
+  // for the ASCII game (Snowboard.jsx) instead of rendering its text.
+  gameFile: "game",
+
+  // snowboard/leaderboard is a real file in ./site/ but swaps the
+  // editor body for the live top-runs board (Leaderboard.jsx) — same
+  // trick as the game.
+  boardFile: "leaderboard",
+
+  // "a links to b" — the graph renders each pair as an arrow a → b.
+  links,
+
+  // Explorer tree — mirrors ./site/. Folders render expanded; files are
+  // openable tabs.
+  files: [root],
+
+  contents,
+
+  // Binary files by filename → asset URL. Explorer lists them; opening
+  // one renders a PDF viewer tab, not text.
+  pdfs,
+
+  chatTitle: "chat",
+  emptyEditor: "no files open",
+
+  // Activity bar — far-left icon rail. View buttons are defined in
+  // ActivityBar.jsx; these are the outbound links pinned to the bottom
+  // of the rail. `icon` names an SVG in ActivityBar.jsx.
+  socials: [
+    { name: "github", url: "https://github.com/Albisourous", icon: "github" },
+    {
+      name: "linkedin",
+      url: "https://www.linkedin.com/in/albin-shrestha",
+      icon: "linkedin",
+    },
+    { name: "x", url: "https://x.com/albinshr", icon: "x" },
+    {
+      name: "instagram",
+      url: "https://www.instagram.com/adventureralbi/",
+      icon: "instagram",
+    },
+  ],
+
+  // Terminal — fake shell pinned to the bottom of the workbench, open
+  // by default on desktop. The log seeds the scrollback; the prompt
+  // takes real commands
+  // (see Terminal.jsx for the command list).
+  termTitle: "terminal",
+  term: ["a1bin.dev $ help", termHelp],
+  termPrompt: "a1bin.dev $",
+  termHelp,
+
+  // Scripted chat — the panel's opening conversation.
+  chat: [
+    { role: "user", text: "what are you working on right now?" },
+    {
+      role: "agent",
+      text: "Making this chat connect to my phone so I can chat with you :)",
+    },
+  ],
+
+  // Replies the agent cycles through for anything the user types.
+  cannedReplies: [
+    "try opening a file in the explorer",
+    "click a node in the graph — they're files",
+    "everything real lives in README.md",
+    "static site — i only know what's in the tree",
+    "the tree is small — still growing",
+    "there's a game hiding in the snowboard folder",
+  ],
+
+  theme: {
+    label: "theme",
+    dark: "dark",
+    light: "light",
   },
-
-  windowTitle: "a1.bin - Notepad",
-
-  // Deterministic document seed — same file on every visit.
-  seed: 0xa1b1,
-
-  // Document shape: total noise lines and target line width in chars.
-  noise: {
-    lines: 72,
-    width: 190,
-  },
-
-  // The printable strings recovered from AI storage. Rendered readable
-  // inside the noise; `href` makes a string a link.
-  strings: [
-    {
-      id: "name",
-      text: "mem 0x00 · albin shrestha — seattle, wa",
-    },
-    {
-      id: "bio",
-      text: "mem 0x01 · writes software. most of storage still empty.",
-    },
-    {
-      id: "github",
-      text: "ptr · github.com/Albisourous",
-      href: "https://github.com/Albisourous",
-    },
-    {
-      id: "x",
-      text: "ptr · x.com/albinshr",
-      href: "https://x.com/albinshr",
-    },
-  ],
-
-  // Marker printed before the link strings, like a section in a dump.
-  stringsMarker: "§ recoverable strings",
-
-  eofMarker: "········ end of recoverable memory ········",
-
-  // Ghost lines typed on the boot intertitle (Lily Chou-Chou layer).
-  intertitle: [
-    "mounting a1.bin …",
-    "ai storage detected.",
-    "integrity check failed — recovering printable strings.",
-  ],
-
-  about: [
-    "a1bin.dev",
-    "",
-    "file type: ai storage (corrupt)",
-    "strings recovered: yes",
-    "owner: albin shrestha",
-  ],
 };

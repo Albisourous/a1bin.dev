@@ -1,27 +1,47 @@
-// Palette — see docs/DESIGN.md §2. Real WinXP system colors.
-$colors: (
-  "paper": #ffffff,
-  "ink": #000000,
-  "ink-dim": #808080,
-  "chrome-face": #ece9d8,
-  "chrome-hilight": #ffffff,
-  "chrome-shadow": #aca899,
-  "chrome-dkshadow": #716f64,
-  "title-grad-a": #0058e6,
-  "title-grad-b": #3a93ff,
-  "title-text": #ffffff,
-  "select-bg": #316ac5,
-  "select-text": #ffffff,
-  "corrupt-soft": #3a3a3a,
-  "caret": #000000,
-  "intertitle-bg": #b4bad9,
-  "intertitle-bg-2": #2b2f4a,
-  "intertitle-ink": #d9dcec,
-  "intertitle-ink-2": #7a80a8,
-  "aero-sky-a": #2e9bd6,
-  "aero-sky-b": #bfe7f7,
-  "aero-field-a": #5fae3c,
-  "aero-field-b": #9cd45f,
-  "aero-mtn": #4a6b8a,
-  "aero-glass": #ffffff
+// Palette — MacBook finishes. Dark = Space Black / titanium minimalist:
+// monochrome, no hue — the accent is brightness itself (starlight silver).
+// Light = Silver, the machine's other finish: same monochrome logic
+// inverted (accent = near-black on paper).
+//
+// 60/30/10 mapping for the IDE:
+//   60% — editor surface (bg / bg-raise)
+//   30% — ink family (text, dims, gutter) + panel borders
+//   10% — accent (starlight silver — reserved for headings, links,
+//         selection, active states; ink is deliberately dimmer)
+
+$dark: (
+  "bg": #161618,
+  // space black — editor field
+  "bg-raise": #27272a,
+  // brushed graphite — panels, sidebar, chat
+  "ink": #c7c7cc,
+  // body — a full stop dimmer than accent
+  "ink-dim": #8e8e95,
+  "noise": #63636b,
+  // gutter, comments
+  "accent": #f4f4f6,
+  // starlight silver — the only highlight
+  "accent-2": #9d9da5,
+  // mid titanium — secondary syntax
+  "select-bg": #f4f4f6,
+  "select-text": #161618,
+  "border": #323238,
+  "caret": #f4f4f6,
+);
+
+$light: (
+  "bg": #f4f4f6,
+  // starlight field
+  "bg-raise": #ffffff,
+  "ink": #1d1d1f,
+  // apple text black
+  "ink-dim": #6e6e73,
+  "noise": #86868b,
+  "accent": #161618,
+  // inverted: darkest tone is the highlight
+  "accent-2": #52525b,
+  "select-bg": #161618,
+  "select-text": #f4f4f6,
+  "border": #d2d2d7,
+  "caret": #1d1d1f,
 );

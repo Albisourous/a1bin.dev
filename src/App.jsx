@@ -1,25 +1,150 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { SITE } from "./content/site.js";
-import { buildDocument } from "./lib/document.js";
-import Window from "./components/window/Window.jsx";
-import Document from "./components/document/Document.jsx";
-import Intertitle from "./components/Intertitle.jsx";
+import TitleBar from "./components/ide/TitleBar.jsx";
+import ActivityBar from "./components/ide/ActivityBar.jsx";
+import Explorer from "./components/ide/Explorer.jsx";
+import Editor from "./components/ide/Editor.jsx";
+import Chat from "./components/ide/Chat.jsx";
+import Terminal from "./components/ide/Terminal.jsx";
+import StatusBar from "./components/ide/StatusBar.jsx";
+import ResizeHandle from "./components/ide/ResizeHandle.jsx";
 
-const reduced = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const MOBILE_Q = "(max-width: 860px)";
+const startsMobile = () => window.matchMedia(MOBILE_Q).matches;
+
+// Live media-query flag — drives the mobile stacked layout.
+function useMedia(query) {
+  const [m, setM] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const fn = () => setM(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, [query]);
+  return m;
+}
+
+// Deep link — /snowboard (or any explorer file name) boots straight
+// into that tab instead of the default landing view.
+const boot = (() => {
+  const name = location.pathname.split("/").filter(Boolean).pop() ?? "";
+  if (name === "snowboard") return SITE.gameFile;
+  return SITE.contents[name] || SITE.pdfs[name] || name === SITE.graphTab
+    ? name
+    : null;
+})();
 
 export default function App() {
-  const [booted, setBooted] = useState(reduced);
-  const lines = useMemo(() => buildDocument(), []);
+  // Tab state: `tabs` is the tab bar order, `active` the focused tab.
+  // The graph tab is a pseudo-file named SITE.graphTab.
+  const [tabs, setTabs] = useState(boot ? [...SITE.openTabs, boot] : SITE.openTabs);
+  const [active, setActive] = useState(boot ?? SITE.activeTab);
+  // In-session drafts: edits survive file switches but reset on reload.
+  const [drafts, setDrafts] = useState({});
+  // Side panel widths; the editor takes whatever space is left.
+  const [explorerW, setExplorerW] = useState(210);
+  const [chatW, setChatW] = useState(330);
+  // On mobile the panels stack vertically, so chat resizes by height.
+  const [chatH, setChatH] = useState(240);
+  // Bottom terminal height — open by default like a real IDE.
+  const [termH, setTermH] = useState(180);
+  // Chat and terminal start closed on mobile: editor gets the screen.
+  const [chatOpen, setChatOpen] = useState(() => !startsMobile());
+  const [termOpen, setTermOpen] = useState(() => !startsMobile());
+  const mobile = useMedia(MOBILE_Q);
+  const text = drafts[active] ?? (SITE.contents[active] || []).join("\n");
 
-  if (!booted) return <Intertitle onDone={() => setBooted(true)} />;
+  const open = (name) => {
+    if (!tabs.includes(name)) setTabs([...tabs, name]);
+    setActive(name);
+  };
+  const close = (name) => {
+    if (name === SITE.graphTab) return; // graph is chrome, not a file
+    const next = tabs.filter((t) => t !== name);
+    setTabs(next);
+    if (name === active) setActive(next[next.length - 1] ?? null);
+  };
+  // Drag reorder — insert `name` before `target`; null target appends.
+  const move = (name, target) => {
+    if (!name || name === target) return;
+    setTabs((ts) => {
+      const next = ts.filter((t) => t !== name);
+      next.splice(target ? next.indexOf(target) : next.length, 0, name);
+      return next;
+    });
+  };
 
   return (
-    <div className="desktop">
-      <Window title={SITE.windowTitle}>
-        <Document lines={lines} />
-      </Window>
+    <div className="ide">
+      <TitleBar />
+      <div
+        className={`workbench${chatOpen ? "" : " workbench--no-chat"}${
+          termOpen ? "" : " workbench--no-term"
+        }`}
+        style={{
+          "--explorer-w": `${explorerW}px`,
+          "--chat-w": `${chatW}px`,
+          "--chat-h": `${chatH}px`,
+          "--term-h": `${termH}px`,
+        }}
+      >
+        <ActivityBar
+          explorerActive={active !== SITE.graphTab}
+          onOpenExplorer={() => {
+            // Explorer never closes — the icon only leaves the graph
+            // view, returning to the most recent file tab.
+            if (active === SITE.graphTab) {
+              open(
+                [...tabs].reverse().find((t) => t !== SITE.graphTab) ??
+                  SITE.graphCenter
+              );
+            }
+          }}
+          graphActive={active === SITE.graphTab}
+          onOpenGraph={() => open(SITE.graphTab)}
+        />
+        <Explorer open={active} onOpen={open} />
+        <ResizeHandle
+          name="explorer"
+          label="resize explorer"
+          onDrag={(dx) => setExplorerW((w) => clamp(w + dx, 140, 480))}
+        />
+        <Editor
+          tabs={tabs}
+          active={active}
+          onSelect={setActive}
+          onClose={close}
+          onMove={move}
+          text={text}
+          onEdit={(t) => setDrafts((d) => ({ ...d, [active]: t }))}
+          onOpenFile={open}
+        />
+        <ResizeHandle
+          name="chat"
+          axis={mobile ? "y" : "x"}
+          label="resize chat"
+          onDrag={(d) =>
+            mobile
+              ? setChatH((h) => clamp(h - d, 120, 480))
+              : setChatW((w) => clamp(w - d, 200, 600))
+          }
+        />
+        <Chat onClose={() => setChatOpen(false)} />
+        <ResizeHandle
+          name="term"
+          axis="y"
+          label="resize terminal"
+          onDrag={(d) => setTermH((h) => clamp(h - d, 80, 400))}
+        />
+        <Terminal onOpen={open} onClose={() => setTermOpen(false)} />
+      </div>
+      <StatusBar
+        chatActive={chatOpen}
+        onToggleChat={() => setChatOpen((o) => !o)}
+        termActive={termOpen}
+        onToggleTerm={() => setTermOpen((o) => !o)}
+      />
     </div>
   );
 }
