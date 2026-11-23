@@ -141,7 +141,7 @@ export const SITE = {
     { role: "user", text: "what are you working on right now?" },
     {
       role: "agent",
-      text: "workong on connecting this chat to my phone :)",
+      text: "working on connecting this chat to my phone :)",
     },
   ],
 

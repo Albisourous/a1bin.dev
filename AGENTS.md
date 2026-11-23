@@ -4,6 +4,11 @@ Vite + React 19 + SCSS personal site, styled as a desktop IDE.
 Design doc: `docs/DESIGN.md`.
 
 - Dev: `npm run dev` · Build: `npm run build` · Preview: `npm run preview`
+- Local dev with the api: `npx vercel dev` runs the `api/` serverless
+  functions (snowboard leaderboard) and serves the SPA. Plain `npm run dev`
+  serves only the SPA — the leaderboard then silently falls back to its
+  localStorage cache. Upstash env vars for `vercel dev` live in
+  `.env.local` (gitignored).
 - Files shown in the IDE are real files in `src/content/site/` — the explorer
   mirrors that folder via `import.meta.glob` in `site.js`. Other copy (chat,
   labels, graph edges) lives in `src/content/site.js` — never hardcode strings.

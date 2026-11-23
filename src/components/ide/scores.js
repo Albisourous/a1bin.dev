@@ -1,21 +1,20 @@
-// Score store — snowboard runs live in localStorage today.
-//
-// TODO(online): swap this module for a shared backend so the board is
-// global across visitors (a tiny Worker/Supabase table is enough).
-// Contract to keep when the remote lands:
+// Score store — snowboard runs live in a global board backed by
+// /api/scores (Upstash Redis); localStorage is the offline cache.
+// Contract:
 //   row: { d, why, name, at }   meters, end cause, rider, epoch ms
-//   loadScores() → top 5, desc by d        → GET /scores
-//   postScore(row) → merge per rider, emit → POST /scores
+//   loadScores() → top 5, desc by d, from the cache        → GET /api/scores
+//   refreshScores() → pull remote board into cache, emit
+//   postScore(row) → merge per rider, emit                 → POST /api/scores
 //   riderName()/saveName() → rider identity
 //   loadBest()/saveBest()  → personal best
-// The fns go async then; call sites just await and re-render on the
-// "snowboard:scores" event they already listen to. Keep localStorage
-// as the offline cache either way. Honor system is fine for a
-// personal site — no signed runs.
+// Every remote call is fire-and-forget and wrapped so a network
+// failure never breaks the game. Components re-render on the
+// "snowboard:scores" event. Honor system — no signed runs.
 const SCORES_KEY = "snowboard.scores";
 const NAME_KEY = "snowboard.name";
 const BEST_KEY = "snowboard.best";
 const TOP = 5;
+const API = "/api/scores";
 
 export const loadScores = () => {
   try {
@@ -23,6 +22,44 @@ export const loadScores = () => {
   } catch {
     return [];
   }
+};
+
+const cacheBoard = (rows) => {
+  try {
+    localStorage.setItem(SCORES_KEY, JSON.stringify(rows));
+  } catch {}
+};
+
+const emit = () => window.dispatchEvent(new Event("snowboard:scores"));
+
+// pull the global board into the cache — silent on failure (offline,
+// `npm run dev` without the api functions, bad env vars)
+export const refreshScores = async () => {
+  try {
+    const res = await fetch(API);
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    cacheBoard(rows);
+    emit();
+  } catch {}
+};
+
+// push one row, then mirror the server's merged board back into the
+// cache. Never awaited by the game.
+const send = async (row) => {
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(row),
+    });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    cacheBoard(rows);
+    emit();
+  } catch {}
 };
 
 export const loadBest = () => {
@@ -50,8 +87,8 @@ export const riderName = () => {
 // Name gate — letters, digits and a few marks, 12 chars max, and a
 // short list of words that don't get on the board. Returns null when
 // the name fails; React escapes the text either way, this only keeps
-// the board clean. When the board goes online, re-check on the server
-// — client-side gates are advisory, not enforcement.
+// the board clean. The same rules are re-checked in api/scores.js —
+// client-side gates are advisory, not enforcement.
 const BAD = /(fuck|shit|cunt|nigg|fag|whore|slut|dick|pussy|cock|bitch|ass|rape|nazi|hitler|kkk|porn|anal)/;
 export const cleanName = (v) => {
   const n = v.trim().replace(/\s+/g, " ").slice(0, 12);
@@ -73,24 +110,27 @@ const perRider = (scores) => {
 };
 
 // name the run — the rider key plus a name stamped onto board rows
-// that don't have one yet
+// that don't have one yet. Then re-post the rider's best row under
+// the name so the server can merge it into the global board.
 export const saveName = (n) => {
   if (!n) return;
   try {
     localStorage.setItem(NAME_KEY, n);
     const scores = loadScores().map((r) => (r.name ? r : { ...r, name: n }));
     // a stamped row can collide with a real one — collapse to one
-    localStorage.setItem(SCORES_KEY, JSON.stringify(perRider(scores).slice(0, TOP)));
+    cacheBoard(perRider(scores).slice(0, TOP));
   } catch {}
-  window.dispatchEvent(new Event("snowboard:scores"));
+  emit();
+  const mine = loadScores().find((r) => r.name === n);
+  if (mine) send(mine);
 };
 
 // a finished run — the rider's row updates only when this run beats
-// their best. `at` (epoch ms) rides along for the future global board.
+// their best. Local write first (offline cache), remote second.
 export const postScore = (row) => {
-  const scores = perRider([...loadScores(), row]).slice(0, TOP);
-  try {
-    localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
-  } catch {}
-  window.dispatchEvent(new Event("snowboard:scores"));
+  cacheBoard(perRider([...loadScores(), row]).slice(0, TOP));
+  emit();
+  send(row);
 };
+
+refreshScores();

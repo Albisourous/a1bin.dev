@@ -1,0 +1,81 @@
+// Global snowboard leaderboard — Vercel serverless + Upstash Redis.
+//
+// GET  /api/scores        → top 5 rows [{d, why, name, at}], desc by d
+// POST /api/scores {row}  → one row per rider, best-only; returns the
+//                           merged top 5 either way
+//
+// Storage: Redis hash `snowboard:riders`, field = rider name (""
+// for anonymous), value = JSON row. A stored row only updates when
+// the new d beats the old. Honor system — no auth, no rate limiting.
+//
+// Env: set by the Vercel Marketplace integration — either
+// UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN (Upstash Redis) or
+// KV_REST_API_URL/KV_REST_API_TOKEN (Vercel KV).
+import { Redis } from "@upstash/redis";
+
+const HASH = "snowboard:riders";
+const TOP = 5;
+const MAX_D = 999999;
+
+// same rules as src/components/ide/scores.js cleanName — client-side
+// gates are advisory, this is the enforcement copy. Keep in sync.
+const BAD = /(fuck|shit|cunt|nigg|fag|whore|slut|dick|pussy|cock|bitch|ass|rape|nazi|hitler|kkk|porn|anal)/;
+const cleanName = (v) => {
+  const n = String(v).trim().replace(/\s+/g, " ").slice(0, 12);
+  if (!n) return null;
+  if (!/^[a-z0-9 .'_-]+$/i.test(n)) return null;
+  if (BAD.test(n.toLowerCase().replace(/[^a-z]/g, ""))) return null;
+  return n;
+};
+
+const board = async (redis) => {
+  const all = await redis.hgetall(HASH);
+  return Object.values(all ?? {})
+    .map((v) => (typeof v === "string" ? JSON.parse(v) : v))
+    .sort((a, b) => b.d - a.d)
+    .slice(0, TOP);
+};
+
+export default async function handler(req, res) {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) {
+    return res.status(500).json({
+      error:
+        "leaderboard not configured — set UPSTASH_REDIS_REST_URL/UPSTASH_REDIS_REST_TOKEN " +
+        "or KV_REST_API_URL/KV_REST_API_TOKEN (Vercel Marketplace integration)",
+    });
+  }
+  const redis = new Redis({ url, token });
+
+  try {
+    if (req.method === "GET") {
+      return res.status(200).json(await board(redis));
+    }
+    if (req.method === "POST") {
+      const { d, why, name, at } = req.body ?? {};
+      if (typeof d !== "number" || !Number.isFinite(d) || d <= 0 || d > MAX_D) {
+        return res.status(400).json({ error: `d must be a positive number ≤ ${MAX_D}` });
+      }
+      if (name != null && cleanName(name) !== name) {
+        return res.status(400).json({ error: "bad name" });
+      }
+      const key = name ?? "";
+      const prev = await redis.hget(HASH, key);
+      const old = typeof prev === "string" ? JSON.parse(prev) : prev;
+      if (!old || d > old.d) {
+        const row = {
+          d,
+          why: String(why ?? "").slice(0, 40),
+          name: name ?? null,
+          at: typeof at === "number" && Number.isFinite(at) ? at : Date.now(),
+        };
+        await redis.hset(HASH, { [key]: JSON.stringify(row) });
+      }
+      return res.status(200).json(await board(redis));
+    }
+    return res.status(405).json({ error: "method not allowed" });
+  } catch (e) {
+    return res.status(500).json({ error: `leaderboard store failed: ${e.message}` });
+  }
+}

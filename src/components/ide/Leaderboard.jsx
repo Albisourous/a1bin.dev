@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadScores } from "./scores.js";
+import { loadScores, refreshScores } from "./scores.js";
 
 // Live leaderboard — score and rider, nothing else. Rendered in place
 // of the leaderboard file's text.
@@ -8,6 +8,7 @@ export default function Leaderboard() {
 
   // stay live — re-read when a run ends, or another tab writes
   useEffect(() => {
+    refreshScores();
     const refresh = () => setScores(loadScores());
     window.addEventListener("snowboard:scores", refresh);
     window.addEventListener("storage", refresh);
