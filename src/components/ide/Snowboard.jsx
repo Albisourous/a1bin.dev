@@ -10,14 +10,16 @@ import {
 
 // ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
 // to drop into the downhill and build speed; release to float off the
-// crest. R restarts. The scene is drawn as vectors so it reads as a
+// crest. Restart is the on-screen button only — a stray tap or a held
+// space can't eat a run. The scene is drawn as vectors so it reads as a
 // game; the sky specks, pines and HUD stay literal Mononoki text, and
 // a dot-matrix overlay keeps the terminal texture. Land on a downslope
 // transition for a "perfect slide" — flat landings bounce, upslope
 // landings kill your speed, and a bad-angle landing wipes you out.
-// Each run races the sun: 5 seconds of daylight, ringed-dot tokens on
-// the slope buy +1s each, and night or a slam ends the run while the
-// hills steepen with distance.
+// Endless — a run ends only when you slam. The sun sets as you ride:
+// 15 seconds of daylight, ringed-dot tokens on the slope buy +1s each,
+// and night is just riding in the dark until a token brings dawn back.
+// The hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -42,7 +44,7 @@ const G_DIVE = 70; // held — drops hard
 const PUSH = 50; // slope → speed coupling on the snow
 const V_MIN = 10;
 const V_MAX = 55;
-const RUN_LEN = 5; // seconds of daylight per run
+const RUN_LEN = 15; // seconds before the first nightfall
 const DAY_CAP = 30; // pickups can only push the sun this far out
 const INTRO = 0.55; // lift ride before the run starts
 
@@ -75,7 +77,7 @@ const hash = (n) => {
 
 // sun tokens thin out with distance until a plateau — from ~700m on
 // the spacing holds, so a run that keeps speed and keeps grabbing
-// tokens stays ahead of the sun forever. Miss a stretch and dusk wins.
+// tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
 const sunGap = (n) => Math.min(36, Math.round((29 + Math.floor(Math.max(0, n) / 45)) / 1.25));
 // token height at world x. Five of six sit on a jump arc: trace
 // the float ballistic off every crest in the run-up at a good rider
@@ -99,10 +101,6 @@ function step(st, dt) {
     return;
   }
   st.t += dt;
-  if (st.t >= st.dayLen) {
-    st.over = true;
-    return;
-  }
   st.x += st.vx * dt;
   const s = slope(st.x);
   const g = st.held ? G_DIVE : G_FLOAT;
@@ -227,7 +225,8 @@ function draw(ctx, st, C, W, H, best) {
   const ty = (h) => anchorY - (h - st.cam) * sy;
   ctx.clearRect(0, 0, W, H);
 
-  // sun — sinks toward the horizon as the run runs out
+  // sun — sinks toward the horizon as daylight runs out; a token can
+  // pull it back up
   const day = Math.min(1, st.t / st.dayLen);
   ctx.strokeStyle = C.accent2;
   ctx.lineWidth = 2;
@@ -284,17 +283,6 @@ function draw(ctx, st, C, W, H, best) {
     if (gy < 44 || gy > H - 8) continue;
     ctx.fillText("|", tx, gy - 6);
     ctx.fillText(`${n - START}m`, tx, gy - 32);
-  }
-
-  // time tokens — ringed dots bobbing on the snow, +1s each
-  ctx.strokeStyle = C.accent2;
-  ctx.fillStyle = C.accent2;
-  ctx.lineWidth = 1.4;
-  for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    const h = hash(n);
-    if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
-    const gy = ty(tokenY(n, h)) + Math.sin(st.t * 3 + n) * 1.5;
-    drawToken(ctx, (n - camX) * sx, gy);
   }
 
   // rider — snowboarder + board, rotated with the slope / flight path.
@@ -423,10 +411,12 @@ function draw(ctx, st, C, W, H, best) {
     ctx.textAlign = "left";
   }
 
-  // dusk — the scene dims toward the page background late in the run
-  const dusk = st.over
-    ? 0.6
-    : Math.max(0, Math.min(0.55, ((st.t - (st.dayLen - 18)) / 18) * 0.55));
+  // dusk → night — the scene dims toward the page background as daylight
+  // runs out, and stays dark past dayLen until a token pushes it back
+  const dusk = Math.max(
+    st.over ? 0.6 : 0,
+    Math.min(0.68, ((st.t - (st.dayLen - 18)) / 18) * 0.68)
+  );
   if (dusk > 0) {
     ctx.globalAlpha = dusk;
     ctx.fillStyle = C.bg;
@@ -434,11 +424,24 @@ function draw(ctx, st, C, W, H, best) {
     ctx.globalAlpha = 1;
   }
 
+  // time tokens — ringed dots bobbing on the snow, +1s each. Drawn over
+  // the night dim so they read as beacons in the dark.
+  ctx.strokeStyle = C.accent2;
+  ctx.fillStyle = C.accent2;
+  ctx.lineWidth = 1.4;
+  for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
+    const h = hash(n);
+    if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
+    const gy = ty(tokenY(n, h)) + Math.sin(st.t * 3 + n) * 1.5;
+    drawToken(ctx, (n - camX) * sx, gy);
+  }
+
   // HUD — monospace text, same voice as the rest of the IDE
   ctx.textAlign = "left";
   ctx.font = `12px ${FONT}`;
   ctx.fillStyle = C.dim;
-  const hud = `${st.vx.toFixed(0)} m/s   ${Math.floor(st.x - START)} m   ${Math.max(0, Math.ceil(st.dayLen - st.t))}s`;
+  const left = Math.ceil(st.dayLen - st.t);
+  const hud = `${st.vx.toFixed(0)} m/s   ${Math.floor(st.x - START)} m   ${left > 0 ? `${left}s` : "night"}`;
   ctx.fillText(hud, 12, 22);
   if (st.combo > 1) {
     ctx.fillStyle = st.combo >= 3 ? C.accent : C.dim;
@@ -474,17 +477,15 @@ function draw(ctx, st, C, W, H, best) {
     ctx.textAlign = "left";
   }
 
-  // night fell — run over, show the distance and the restart hint
+  // run over — show the distance and the restart hint
   if (st.over) {
     ctx.textAlign = "center";
     ctx.font = `bold 16px ${FONT}`;
     ctx.fillStyle = C.accent2;
-    ctx.fillText(st.death ?? "night fell", W / 2, H * 0.4);
+    ctx.fillText(st.death, W / 2, H * 0.4);
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = C.ink;
     ctx.fillText(`${Math.floor(st.x - START)} m   best ${best} m`, W / 2, H * 0.4 + 22);
-    ctx.fillStyle = C.dim;
-    ctx.fillText(TOUCH ? "tap snow — ride again" : "space — ride again", W / 2, H * 0.4 + 42);
     if (st.naming) {
       ctx.fillStyle = C.accent;
       ctx.fillText(
@@ -522,6 +523,7 @@ export default function Snowboard() {
   // Touch can't type on a canvas — the name prompt is a real input.
   const [touchNaming, setTouchNaming] = useState(false);
   const [touchBuf, setTouchBuf] = useState("");
+  const [over, setOver] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -562,6 +564,7 @@ export default function Snowboard() {
       if (!sim.current.over) step(sim.current, dt);
       if (sim.current.over && !sim.current.recorded) {
         sim.current.recorded = true;
+        setOver(true);
         const d = Math.floor(sim.current.x - START);
         if (d > best.current) {
           best.current = d;
@@ -570,7 +573,7 @@ export default function Snowboard() {
         // leaderboard — top 5 runs, kept locally for now
         postScore({
           d,
-          why: sim.current.death ?? "night fell",
+          why: sim.current.death,
           name: riderName() || null,
           at: Date.now(),
         });
@@ -605,23 +608,8 @@ export default function Snowboard() {
     const down = (e) => {
       if (editable(e.target)) return;
       const st = sim.current;
-      // space restarts — but only on a fresh press. A space still held
-      // from the run (held=true until keyup) must not skip the name
-      // prompt the instant it appears.
-      if (st.over && e.code === "Space" && !st.held) {
-        e.preventDefault();
-        setTouchNaming(false);
-        Object.assign(st, fresh(), { held: true });
-        return;
-      }
       if (st.naming) {
-        // r skips the prompt into a fresh run — names with 'r' go in
-        // via the leaderboard file instead
-        if (e.code === "KeyR") {
-          st.naming = false;
-          st.nameBuf = "";
-          Object.assign(st, fresh(), { held: st.held });
-        } else if (e.code === "Enter") commitName(st);
+        if (e.code === "Enter") commitName(st);
         else if (e.code === "Escape") {
           st.naming = false;
           st.nameBuf = "";
@@ -640,8 +628,6 @@ export default function Snowboard() {
       if (e.code === "Space") {
         e.preventDefault();
         if (!st.over) st.held = true;
-      } else if (e.code === "KeyR") {
-        Object.assign(st, fresh(), { held: st.held });
       }
     };
     const up = (e) => {
@@ -664,17 +650,20 @@ export default function Snowboard() {
     setTouchNaming(false);
   };
 
+  const restart = () => {
+    setTouchNaming(false);
+    Object.assign(sim.current, fresh());
+    setOver(false);
+  };
+
   return (
     <div
       ref={wrapRef}
       className="game"
       onPointerDown={(e) => {
+        // a run's ending is inert — only the restart button rides again
+        if (sim.current.over) return;
         e.currentTarget.setPointerCapture(e.pointerId);
-        if (sim.current.over) {
-          // tapping the snow skips the prompt and rides again
-          setTouchNaming(false);
-          Object.assign(sim.current, fresh());
-        }
         sim.current.held = true;
       }}
       onPointerUp={() => (sim.current.held = false)}
@@ -700,6 +689,15 @@ export default function Snowboard() {
             save
           </button>
         </div>
+      )}
+      {over && (
+        <button
+          className="game__restart"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={restart}
+        >
+          restart
+        </button>
       )}
     </div>
   );

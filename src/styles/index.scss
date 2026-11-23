@@ -620,6 +620,28 @@ body.is-resizing-y {
       color: var(--accent);
     }
   }
+
+  // Restart — the only way back onto the hill. A real button so a stray
+  // tap or a held space can't eat a run (or its name prompt).
+  &__restart {
+    position: absolute;
+    left: 50%;
+    top: 68%;
+    transform: translateX(-50%);
+    z-index: 1;
+    font-family: t.$font-doc;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.3em 1.4em;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+  }
 }
 
 // Leaderboard — live top runs in the editor body (Leaderboard.jsx). ----------
