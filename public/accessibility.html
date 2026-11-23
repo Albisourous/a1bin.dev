@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+      name="description"
+      content="Accessibility statement for a1bin.dev — targets WCAG 2.2 level AA."
+    />
+    <title>accessibility — a1bin.dev</title>
+    <link rel="canonical" href="https://a1bin.dev/accessibility.html" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      @font-face {
+        font-family: "Mononoki";
+        src: url("/fonts/mononoki-Regular.ttf") format("truetype");
+      }
+      @font-face {
+        font-family: "Mononoki";
+        src: url("/fonts/mononoki-Bold.ttf") format("truetype");
+        font-weight: 700;
+      }
+      :root {
+        --bg: #f4f4f6;
+        --ink: #1d1d1f;
+        --ink-dim: #6e6e73;
+        --border: #d2d2d7;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #161618;
+          --ink: #c7c7cc;
+          --ink-dim: #8e8e95;
+          --border: #323238;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 1.25rem 4rem;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Mononoki", "Lucida Console", ui-monospace, monospace;
+        font-size: 0.95rem;
+        line-height: 1.65;
+      }
+      .wrap {
+        max-width: 42em;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin: 0 0 0.25rem;
+      }
+      h2 {
+        font-size: 1rem;
+        margin: 2rem 0 0.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+      }
+      .sub {
+        color: var(--ink-dim);
+        margin: 0 0 2rem;
+      }
+      p,
+      ul {
+        margin: 0.5rem 0;
+      }
+      ul {
+        padding-left: 1.5rem;
+      }
+      li + li {
+        margin-top: 0.35rem;
+      }
+      a {
+        color: var(--ink);
+      }
+      a:focus-visible,
+      .skip:focus-visible {
+        outline: 2px solid var(--ink);
+        outline-offset: 2px;
+      }
+      .skip {
+        position: absolute;
+        left: -9999px;
+        background: var(--ink);
+        color: var(--bg);
+        padding: 0.4rem 0.8rem;
+      }
+      .skip:focus {
+        position: static;
+      }
+      footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        color: var(--ink-dim);
+      }
+      ::selection {
+        background: var(--ink);
+        color: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">skip to content</a>
+    <div class="wrap">
+      <header>
+        <h1>accessibility</h1>
+        <p class="sub">a1bin.dev — the site that looks like an ide</p>
+      </header>
+      <main id="main">
+        <p>
+          target: <strong>WCAG 2.2 level AA</strong>. status: partially
+          conformant — last reviewed november 2026.
+        </p>
+        <section aria-labelledby="works">
+          <h2 id="works">what works</h2>
+          <ul>
+            <li>
+              every control is keyboard reachable — explorer, tabs,
+              editor, chat, terminal, status bar
+            </li>
+            <li>
+              text is real text. it selects, zooms, and reads through a
+              screen reader
+            </li>
+            <li>
+              two themes with checked contrast — the status-bar toggle
+              remembers your pick
+            </li>
+            <li>
+              animation only runs when your system allows it
+              (prefers-reduced-motion)
+            </li>
+            <li>
+              icon-only buttons carry aria-labels, and the panels are
+              named landmarks
+            </li>
+          </ul>
+        </section>
+        <section aria-labelledby="gaps">
+          <h2 id="gaps">known limitations</h2>
+          <ul>
+            <li>
+              the snowboard game is ascii art — a wall of characters
+              with no screen-reader story
+            </li>
+            <li>
+              the graph view is a visual map. every link in it is also a
+              plain file in the explorer
+            </li>
+            <li>
+              the resume is a pdf. the text extracts fine, but it's
+              still a pdf
+            </li>
+            <li>
+              edits you make in the editor are session-only and aren't
+              announced
+            </li>
+          </ul>
+        </section>
+        <section aria-labelledby="feedback">
+          <h2 id="feedback">feedback</h2>
+          <p>
+            spot something broken?
+            <a href="mailto:albinshrestha01@gmail.com">email me</a>
+            — accessibility bugs get fixed first.
+          </p>
+        </section>
+      </main>
+      <footer><a href="/">← back to a1bin.dev</a></footer>
+    </div>
+  </body>
+</html>

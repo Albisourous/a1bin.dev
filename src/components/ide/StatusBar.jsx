@@ -32,6 +32,14 @@ export default function StatusBar({
   return (
     <footer className="statusbar">
       <span className="statusbar__item">⎇ main</span>
+      <a
+        className="statusbar__item statusbar__item--btn"
+        href={SITE.a11y.href}
+        aria-label={SITE.a11y.title}
+        title={SITE.a11y.title}
+      >
+        {SITE.a11y.label}
+      </a>
       <span className="statusbar__spacer" />
       <button
         className={`statusbar__item statusbar__item--btn${

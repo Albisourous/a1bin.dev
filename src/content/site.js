@@ -106,6 +106,16 @@ export const SITE = {
   // trick as the game.
   boardFile: "leaderboard.txt",
 
+  // Status-bar "a11y" link → the standalone statement page. A real
+  // html file in public/ so it works without the SPA — Vercel serves
+  // it before the rewrite. ACCESSIBILITY.md in ./site/ mirrors the
+  // text for explorer/graph readers.
+  a11y: {
+    label: "a11y",
+    title: "accessibility statement",
+    href: "/accessibility.html",
+  },
+
   // "a links to b" — the graph renders each pair as an arrow a → b.
   links,
 
