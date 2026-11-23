@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { SITE } from "../../content/site.js";
 
-// The agent panel: scripted opening conversation + canned replies for
-// whatever the user types. Pure client, nothing sent anywhere.
+// The agent panel: opening conversation from SITE.chat, real replies
+// from /api/chat (Groq, server-side). When the API isn't there — plain
+// `vite dev`, no key, or an error — it falls back to canned replies.
 export default function Chat({ onClose }) {
   const [msgs, setMsgs] = useState(SITE.chat);
   const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
   const replyIdx = useRef(0);
   const endRef = useRef(null);
 
@@ -13,17 +15,29 @@ export default function Chat({ onClose }) {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [msgs]);
 
-  function send(e) {
+  async function send(e) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text || busy) return;
     setDraft("");
-    setMsgs((m) => [...m, { role: "user", text }]);
-    const reply =
-      SITE.cannedReplies[replyIdx.current++ % SITE.cannedReplies.length];
-    setTimeout(() => {
-      setMsgs((m) => [...m, { role: "agent", text: reply }]);
-    }, 600);
+    const next = [...msgs, { role: "user", text }];
+    setMsgs([...next, { role: "agent", text: "…" }]);
+    setBusy(true);
+    let reply;
+    try {
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messages: next }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      reply = (await r.json()).reply;
+    } catch {
+      reply =
+        SITE.cannedReplies[replyIdx.current++ % SITE.cannedReplies.length];
+    }
+    setMsgs((m) => [...m.slice(0, -1), { role: "agent", text: reply }]);
+    setBusy(false);
   }
 
   return (
@@ -48,7 +62,7 @@ export default function Chat({ onClose }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="ask anything…"
-          aria-label="message devin"
+          aria-label={`message ${SITE.chatTitle}`}
         />
       </form>
     </aside>

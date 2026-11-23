@@ -5,10 +5,16 @@ Design doc: `docs/DESIGN.md`.
 
 - Dev: `npm run dev` · Build: `npm run build` · Preview: `npm run preview`
 - Local dev with the api: `npx vercel dev` runs the `api/` serverless
-  functions (snowboard leaderboard) and serves the SPA. Plain `npm run dev`
-  serves only the SPA — the leaderboard then silently falls back to its
-  localStorage cache. Upstash env vars for `vercel dev` live in
-  `.env.local` (gitignored).
+  functions (snowboard leaderboard, agent chat) and serves the SPA.
+  Plain `npm run dev` serves only the SPA — the leaderboard then
+  silently falls back to its localStorage cache and chat falls back to
+  `SITE.cannedReplies`. Upstash env vars + `GROQ_API_KEY` for
+  `vercel dev` live in `.env.local` (gitignored).
+- Chat agent: `api/chat.js` → Groq `llama-3.1-8b-instant`. Knowledge =
+  `src/content/site/**` text + `api/resume.txt`, shipped via
+  `vercel.json` `functions.includeFiles`. `api/resume.txt` is
+  Resume.pdf extracted — regenerate when the PDF changes:
+  `osascript -l JavaScript -e 'ObjC.import("Quartz"); const u=$.NSURL.fileURLWithPath("<abs>/src/content/site/Resume.pdf"); $.PDFDocument.alloc.initWithURL(u).string.js' > api/resume.txt`
 - Files shown in the IDE are real files in `src/content/site/` — the explorer
   mirrors that folder via `import.meta.glob` in `site.js`. Other copy (chat,
   labels, graph edges) lives in `src/content/site.js` — never hardcode strings.

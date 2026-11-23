@@ -1,0 +1,75 @@
+Albin Shrestha
+817-713-6090 | albinshrestha01@gmail.com | linkedin.com/in/albin-shrestha/ | github.com/Albisourous
+EDUCATION
+The University of Texas at Austin, Austin, TX 2019 – 2021
+Bachelor of Science, Computer Science
+SKILLS AND CERTIFICATIONS
+Programming Languages: TypeScript/JavaScript, Python, Kotlin, Java, Swift
+Technologies: AWS, React, PyTorch, Agent Tooling
+Other Technical Skills: Scrum Master, Agile Development, Technical Writing
+Languages: English, Nepali, and Basic Hindi
+EXPERIENCE
+Amazon, Seattle, WA Jun 2022 - Present
+Software Development Engineer: Kotlin, React/JS, Callflow language (Assembly), 3x yearly hackathon winner
+●
+Worked on Amazon's Customer Service (CS) landing page, used by millions of customers daily.
+○
+Expanded Amazon CS to Amazon International Shopping, Business, Autos, Haul, Whole Foods.
+○
+Shipped an LLM-powered widget predicting customer resolutions on the landing page
+○
+Shipped QR code widget with add to Apple Wallet to streamline customer returns
+○
+Accelerated landing page TTMI by up to 40% faster: skeleton loading + network optimizations
+○
+Consolidated multilingual strings across different sources into an automated unified translation service
+○
+Led migration from legacy JSP to React/Kotlin (pre-ai)
+●
+Expanded capabilities of AVA, Amazon Voice Assistant
+○
+Built end-to-end support for multi-item use case for voice: ~60k customer issues resolved annually
+○
+“You can press or say” feature enabling keypad support for voice interactions
+○
+Migrated old assembly-like callflow language to AWS Connect
+○
+Fixed bug impacting 350k+ UK customers through real world validation, contrary to metrics
+●
+Built CSOrchard
+○
+LLM-powered dependency graph of the CS org's 600+ packages served to coding agents over MCP
+○
+20/20 correct lookups vs 13/20 without, 42% fewer credits, 55% fewer tokens on average
+●
+Prototyped and demoed a real-time Video AI assistant with principal engineers to Amazon S-team leaders and
+Amazon Stores CEO
+○
+Built the audio streaming, text input, and video chat UI from scratch, facetime-esque experience
+○
+Won the Amazon One CS Award
+Ownwell, Austin, TX Feb 2022 - Mar 2022
+Software Engineer, Full-Stack: Next.js
+●
+Built a full-stack web application for a fintech home-refinancing startup
+Pluralsight, Fort Worth, TX Dec 2019 - May 2022
+Technical Writer: Spring, Java, Python, Scrum Master, SQL
+●
+Authored thousands of questions across 12 courses, mapped to Bloom's Taxonomy of learning objectives
+OnRamps UT Austin, Austin, TX Dec 2020 - Jun 2021
+Course Grader: R
+●
+Evaluated statistical analysis reports and R code for a dual credit statistics course across the entire state of Texas
+PROJECTS
+●
+prefixer: agent skill creating a context map so they search the right subtree, cutting unnecessary token usage
+●
+Roblox agent skills: toolkit for building roblox games using AI quickly and efficiently
+●
+duoscreen: native SwiftUI dual-screen web browser for iPhone with a draggable divider.
+●
+AmigOS: co-directed a 60+ student class project building a dual-platform ARM/x86 operating system.
+●
+SuperTuxKart Ice Hockey AI: imitation-learning agent in PyTorch, ranked 1st of 62 peer models.
+●
+pokestrike: Pokémon × Monster Strike browser game, playable in the browser
