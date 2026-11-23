@@ -33,28 +33,24 @@ export const EXPERIMENTS = [
   {
     id: "dive-input",
     name: "dive mechanic",
-    status: "concluded",
+    status: "idea",
     question: "how should the snowboarder dive?",
     metric: "median run distance",
     variants: [
       { key: "a", label: "hold space", note: "press and hold to tuck" },
       { key: "b", label: "tap to flap", note: "each tap lifts the nose" },
     ],
-    winner: "a",
-    note: "hold won — tap runs died young and angry",
   },
   {
     id: "board-rank",
     name: "leaderboard math",
-    status: "concluded",
+    status: "idea",
     question: "best run or total runs on the board?",
     metric: "repeat plays after posting",
     variants: [
       { key: "a", label: "best run", note: "one row per rider" },
       { key: "b", label: "total runs", note: "grinding climbs the board" },
     ],
-    winner: "a",
-    note: "best won — totals rewarded stamina, not skill",
   },
   {
     id: "term-boot",
@@ -74,7 +70,7 @@ export const AB_COPY = {
   title: "a/b — experiment log",
   blurb:
     "this site a/b tests itself on you. live tests deal you a variant " +
-    "in your browser — nothing is sent anywhere. yet.",
+    "in your browser and tally the draws — your arm is all that's counted.",
   metricLabel: "metric",
   youLabel: "you got",
   winnerLabel: "winner",
