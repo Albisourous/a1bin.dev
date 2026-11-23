@@ -1,8 +1,9 @@
 // The public experiment registry — what this site tests on its
-// visitors. One entry per test; `status` drives what AB.jsx shows:
+// visitors. One entry per test; `status` is internal plumbing, never
+// shown: we don't claim a test is running, only report the draw.
 //   live      → each browser draws a variant (src/lib/ab.js)
 //   concluded → `winner` (a variant key) + `note` tell the result
-//   idea      → on the whiteboard, no assignment
+//   idea      → on the whiteboard, no assignment, dashed wireframe
 //
 // Shape: { id, name, status, question, metric, variants[], winner?, note? }
 // `id` is the assignment hash input — keep it stable once an experiment
@@ -41,42 +42,16 @@ export const EXPERIMENTS = [
       { key: "b", label: "tap to flap", note: "each tap lifts the nose" },
     ],
   },
-  {
-    id: "board-rank",
-    name: "leaderboard math",
-    status: "idea",
-    question: "best run or total runs on the board?",
-    metric: "repeat plays after posting",
-    variants: [
-      { key: "a", label: "best run", note: "one row per rider" },
-      { key: "b", label: "total runs", note: "grinding climbs the board" },
-    ],
-  },
-  {
-    id: "term-boot",
-    name: "terminal on boot",
-    status: "idea",
-    question: "open the shell at the bottom on landing?",
-    metric: "commands typed",
-    variants: [
-      { key: "a", label: "term open", note: "prompt blinks up at you" },
-      { key: "b", label: "term closed", note: "editor keeps the floor" },
-    ],
-  },
 ];
 
 // UI copy for the A/B tab — every string the view renders lives here.
 export const AB_COPY = {
   title: "a/b — experiment log",
   blurb:
-    "this site a/b tests itself on you. live tests deal you a variant " +
-    "in your browser and tally the draws — your arm is all that's counted.",
+    "some choices on this site get settled by a/b draw — your browser " +
+    "holds the card. where you've been dealt in, your arm is marked.",
   metricLabel: "metric",
   youLabel: "you got",
   winnerLabel: "winner",
   footnote: "assignments live in localStorage — no cookies, no tracking pixels",
-  // Status marks — brightness and fill only, never hue:
-  //   ● live (bright)   ○ concluded (dim)   · idea (faint)
-  statuses: { live: "live", concluded: "concluded", idea: "idea" },
-  marks: { live: "●", concluded: "○", idea: "·" },
 };

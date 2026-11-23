@@ -45,21 +45,6 @@
     font-weight: 700;
   }
 
-  &__status {
-    margin-left: auto;
-    white-space: nowrap;
-
-    &--live {
-      color: var(--accent);
-    }
-    &--concluded {
-      color: var(--ink-dim);
-    }
-    &--idea {
-      color: var(--noise);
-    }
-  }
-
   &__q {
     margin: s.$space-1 0 s.$space-3;
     color: var(--ink-dim);
@@ -125,22 +110,11 @@
     white-space: nowrap;
   }
 
-  &__n {
-    margin-left: auto;
-    font-size: 0.85em;
-    color: var(--noise);
-  }
-
   &__tag {
     margin-left: auto;
     font-size: 0.85em;
     opacity: 0.8;
     white-space: nowrap;
-  }
-
-  // count sits left of the tag when both render
-  &__n + &__tag {
-    margin-left: 0.6em;
   }
 
   &__note {
@@ -171,8 +145,13 @@
   }
 }
 
-// Narrow screens — the split stacks, seam moves from side to top.
+// Narrow screens — the split stacks, seam moves from side to top, and
+// the page tightens its padding so an experiment still fits a phone.
 @media (max-width: 560px) {
+  .ab {
+    padding: s.$space-4 s.$space-3;
+  }
+
   .ab__split {
     flex-direction: column;
   }
@@ -184,5 +163,10 @@
 
   .ab__exp--idea .ab__arm + .ab__arm {
     border-top-style: dashed;
+  }
+
+  .ab__meta {
+    flex-direction: column;
+    gap: 0.3em;
   }
 }
