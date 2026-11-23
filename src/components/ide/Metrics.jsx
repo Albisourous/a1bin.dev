@@ -2,11 +2,6 @@ import { useEffect, useState } from "react";
 import { fetchMetrics } from "../../lib/metrics.js";
 import { METRICS } from "../../content/metrics.js";
 
-// Unicode block sparkline — one char per day, scaled to the series max.
-// Same trick as the snowboard brag card: bars you can read in monospace.
-const BARS = "▁▂▃▄▅▆▇█";
-const bar = (v, max) => BARS[max ? Math.round((v / max) * 7) : 0];
-
 const STAT_KEYS = ["visits", "chats", "runs", "term", "resume"];
 const SERIES_KEYS = ["visits", "chats", "runs", "term", "resume"];
 
@@ -56,20 +51,40 @@ export default function Metrics() {
           </div>
         ))}
       </div>
-      {SERIES_KEYS.map((k) => {
-        const max = Math.max(...days.map((d) => d[k] ?? 0));
-        const spark = days.map((d) => bar(d[k] ?? 0, max)).join("");
-        return (
-          <div className="metrics__series" key={k}>
-            <span className="metrics__name">{METRICS.series[k]}</span>
-            <span className="metrics__spark">
-              {spark.slice(0, -1)}
-              <span className="metrics__today">{spark.at(-1)}</span>
-            </span>
-            <span className="metrics__count">{days.at(-1)?.[k] ?? 0}</span>
-          </div>
-        );
-      })}
+      <div className="metrics__rows">
+        {SERIES_KEYS.map((k) => {
+          const max = Math.max(...days.map((d) => d[k] ?? 0));
+          return (
+            <div className="metrics__series" key={k}>
+              <span className="metrics__name">{METRICS.series[k]}</span>
+              <div className="metrics__grid">
+                {days.map((d, i) => {
+                  const v = d[k] ?? 0;
+                  const lvl = max ? v / max : 0;
+                  return (
+                    <span
+                      key={d.d}
+                      className={`metrics__cell${
+                        i === days.length - 1 ? " is-today" : ""
+                      }`}
+                      style={
+                        v
+                          ? {
+                              background: "var(--accent)",
+                              opacity: 0.25 + lvl * 0.75,
+                            }
+                          : undefined
+                      }
+                      title={`${d.d} — ${v}`}
+                    />
+                  );
+                })}
+              </div>
+              <span className="metrics__count">{days.at(-1)?.[k] ?? 0}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

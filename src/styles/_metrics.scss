@@ -31,6 +31,7 @@
 
   &__num {
     font-size: 2em;
+    font-weight: 700;
     line-height: 1.1;
     color: var(--accent);
   }
@@ -39,9 +40,18 @@
     color: var(--ink-dim);
   }
 
+  // Contribution matrix — one row per metric, one cell per day. Zero
+  // days ghost out at border strength; anything nonzero paints accent,
+  // brighter with volume. Today's cell gets the ring.
+  &__rows {
+    display: flex;
+    flex-direction: column;
+    gap: s.$space-3;
+  }
+
   &__series {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 1.5em;
   }
 
@@ -51,18 +61,39 @@
     color: var(--ink-dim);
   }
 
-  &__spark {
-    color: var(--accent-2);
-    white-space: pre;
+  &__grid {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(30, 1fr);
+    gap: 3px;
   }
 
-  // today's bar — the live edge of each sparkline
-  &__today {
-    color: var(--accent);
+  &__cell {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--border);
+    opacity: 0.35;
+
+    @media (prefers-reduced-motion: no-preference) {
+      transition: opacity 120ms ease;
+    }
+
+    &.is-today {
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    &:hover {
+      opacity: 1;
+      outline: 1px solid var(--accent);
+      outline-offset: 1px;
+    }
   }
 
   &__count {
     color: var(--noise);
+    text-align: right;
   }
 
   &__dim {
