@@ -27,7 +27,7 @@ export default function Leaderboard() {
         <>
           <div className="board__row board__row--head">
             <span className="board__dist">score</span>
-            <span className="board__who">rider</span>
+            <span className="board__who">player</span>
           </div>
           {scores.map((r, i) => (
             <div key={i} className="board__row">

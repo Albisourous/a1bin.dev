@@ -2,7 +2,7 @@
 // /api/scores (Upstash Redis); localStorage is the offline cache.
 // Contract:
 //   row: { d, why, name, at }   meters, end cause, rider, epoch ms
-//   loadScores() → top 5, desc by d, from the cache        → GET /api/scores
+//   loadScores() → all rows, desc by d, from the cache     → GET /api/scores
 //   refreshScores() → pull remote board into cache, emit
 //   postScore(row) → merge per rider, emit                 → POST /api/scores
 //   riderName()/saveName() → rider identity
@@ -13,7 +13,6 @@
 const SCORES_KEY = "snowboard.scores";
 const NAME_KEY = "snowboard.name";
 const BEST_KEY = "snowboard.best";
-const TOP = 5;
 const API = "/api/scores";
 
 export const loadScores = () => {
@@ -118,7 +117,7 @@ export const saveName = (n) => {
     localStorage.setItem(NAME_KEY, n);
     const scores = loadScores().map((r) => (r.name ? r : { ...r, name: n }));
     // a stamped row can collide with a real one — collapse to one
-    cacheBoard(perRider(scores).slice(0, TOP));
+    cacheBoard(perRider(scores));
   } catch {}
   emit();
   const mine = loadScores().find((r) => r.name === n);
@@ -128,7 +127,7 @@ export const saveName = (n) => {
 // a finished run — the rider's row updates only when this run beats
 // their best. Local write first (offline cache), remote second.
 export const postScore = (row) => {
-  cacheBoard(perRider([...loadScores(), row]).slice(0, TOP));
+  cacheBoard(perRider([...loadScores(), row]));
   emit();
   send(row);
 };

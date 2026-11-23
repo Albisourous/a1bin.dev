@@ -25,19 +25,21 @@ const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
 const VIEW_H = 26; // world units of vertical range
 
-// hills steepen with distance — a run has its own difficulty curve
-const hill = (x) =>
+// hills steepen with distance — a run has its own difficulty curve.
+// ph is a per-run phase triple rolled in fresh(), so every run — and
+// every rider — gets a different mountain instead of the same script.
+const hill = (x, ph) =>
   (1 + Math.min(1, Math.max(0, x) * 0.001)) *
-  (5.2 * Math.sin(x * 0.072) +
-    3.0 * Math.sin(x * 0.027 + 1.7) +
-    1.5 * Math.sin(x * 0.13 + 4.2));
-const slope = (x) => (hill(x + 0.4) - hill(x - 0.4)) / 0.8;
+  (5.2 * Math.sin(x * 0.072 + ph[0]) +
+    3.0 * Math.sin(x * 0.027 + 1.7 + ph[1]) +
+    1.5 * Math.sin(x * 0.13 + 4.2 + ph[2]));
+const slope = (x, ph) => (hill(x + 0.4, ph) - hill(x - 0.4, ph)) / 0.8;
 // the run starts on the first crest — lift drops you on a hilltop
-const START = (() => {
+const startFor = (ph) => {
   for (let x = 0.5; x < 200; x += 0.25)
-    if (slope(x - 0.5) > 0 && slope(x + 0.5) <= 0) return x;
+    if (slope(x - 0.5, ph) > 0 && slope(x + 0.5, ph) <= 0) return x;
   return 0;
-})();
+};
 
 const G_FLOAT = 16; // released — floaty, hangs in the air
 const G_DIVE = 70; // held — drops hard
@@ -48,27 +50,35 @@ const RUN_LEN = 15; // seconds before the first nightfall
 const DAY_CAP = 30; // pickups can only push the sun this far out
 const INTRO = 0.55; // lift ride before the run starts
 
-const fresh = () => ({
-  x: START,
-  y: hill(START),
-  vy: 0,
-  vx: 14,
-  cam: hill(START),
-  ground: true,
-  held: false,
-  combo: 0, // consecutive perfect slides
-  fx: null, // floating feedback label {x, y, t, text, kind}
-  intro: INTRO, // riding the lift in — the clock hasn't started
-  t: 0, // seconds ridden — night falls at dayLen
-  dayLen: RUN_LEN, // sun pickups buy more daylight
-  collected: new Set(), // grabbed sun tokens
-  death: null, // "wiped out" on a bad-angle slam
-  crashed: false, // rider lies flat on the snow
-  over: false,
-  recorded: false, // best already saved for this run
-  naming: false, // typing a rider name on the over screen
-  nameBuf: "",
-});
+const fresh = () => {
+  const seed = (Math.random() * 0xffffffff) >>> 0;
+  const ph = [0, 1, 2].map((i) => (hash(seed + i) / 4294967296) * Math.PI * 2);
+  const start = startFor(ph);
+  return {
+    seed,
+    ph,
+    start,
+    x: start,
+    y: hill(start, ph),
+    vy: 0,
+    vx: 14,
+    cam: hill(start, ph),
+    ground: true,
+    held: false,
+    combo: 0, // consecutive perfect slides
+    fx: null, // floating feedback label {x, y, t, text, kind}
+    intro: INTRO, // riding the lift in — the clock hasn't started
+    t: 0, // seconds ridden — night falls at dayLen
+    dayLen: RUN_LEN, // sun pickups buy more daylight
+    collected: new Set(), // grabbed sun tokens
+    death: null, // "wiped out" on a bad-angle slam
+    crashed: false, // rider lies flat on the snow
+    over: false,
+    recorded: false, // best already saved for this run
+    naming: false, // typing a rider name on the over screen
+    nameBuf: "",
+  };
+};
 
 const hash = (n) => {
   n = (n * 2654435761) >>> 0;
@@ -83,14 +93,14 @@ const sunGap = (n) => Math.min(36, Math.round((29 + Math.floor(Math.max(0, n) / 
 // the float ballistic off every crest in the run-up at a good rider
 // speed and keep the highest reach at x=n — grabbing one means
 // leaving the snow. The rest stay at boot-to-torso level.
-const tokenY = (n, h) => {
-  if ((h >> 7) % 6 === 0) return hill(n) + 0.7 + ((h >> 4) % 3) * 0.5;
-  let y = hill(n) + 2.2;
+const tokenY = (n, h, ph) => {
+  if ((h >> 7) % 6 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
+  let y = hill(n, ph) + 2.2;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
     const v = 36;
-    const vy0 = Math.min(Math.max(0, slope(x0 - 0.6)) * v * 1.25, 28);
+    const vy0 = Math.min(Math.max(0, slope(x0 - 0.6, ph)) * v * 1.25, 28);
     const t = (n - x0) / v;
-    y = Math.max(y, hill(x0) + vy0 * t - 0.5 * G_FLOAT * t * t);
+    y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
   return y;
 };
@@ -102,10 +112,10 @@ function step(st, dt) {
   }
   st.t += dt;
   st.x += st.vx * dt;
-  const s = slope(st.x);
+  const s = slope(st.x, st.ph);
   const g = st.held ? G_DIVE : G_FLOAT;
   if (st.ground) {
-    const y2 = hill(st.x);
+    const y2 = hill(st.x, st.ph);
     // launch when the ballistic arc stays above the new ground —
     // i.e. the hill curved away under the board
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
@@ -124,9 +134,9 @@ function step(st, dt) {
   } else {
     st.vy -= g * dt;
     st.y += st.vy * dt;
-    const y2 = hill(st.x);
+    const y2 = hill(st.x, st.ph);
     if (st.y <= y2) {
-      const s2 = slope(st.x);
+      const s2 = slope(st.x, st.ph);
       // wipeout — land badly mismatched to the slope and you slam.
       // steep dives are fine mid-air; it's the landing angle that kills.
       if (Math.abs(Math.atan2(st.vy, st.vx) - Math.atan(s2)) > 1.15) {
@@ -173,9 +183,9 @@ function step(st, dt) {
   // time tokens — strung along jump arcs and the snow; the rider's
   // body has to touch one. Each buys a second of daylight.
   const pn = Math.round(st.x);
-  const ph = hash(pn);
+  const ph = hash(pn ^ st.seed);
   if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
-    const py = tokenY(pn, ph);
+    const py = tokenY(pn, ph, st.ph);
     if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
       st.dayLen = Math.min(DAY_CAP, st.dayLen + 1);
@@ -238,7 +248,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `10px ${FONT}`;
   const n0 = Math.floor(camX * 0.5);
   for (let n = n0; n < n0 + VIEW_W * 2 + 4; n++) {
-    const h = hash(n);
+    const h = hash(n ^ st.seed);
     if (h % 23 !== 0) continue;
     ctx.fillText(h % 2 ? "'" : ".", (n - camX * 0.5) * sx, 10 + ((h >> 5) % Math.round(anchorY * 0.5)));
   }
@@ -246,14 +256,14 @@ function draw(ctx, st, C, W, H, best) {
   // main slope — filled snow body + bright surface line
   ctx.beginPath();
   ctx.moveTo(0, H);
-  for (let p = 0; p <= W; p += 2) ctx.lineTo(p, ty(hill(camX + p / sx)));
+  for (let p = 0; p <= W; p += 2) ctx.lineTo(p, ty(hill(camX + p / sx, st.ph)));
   ctx.lineTo(W, H);
   ctx.closePath();
   ctx.fillStyle = C.raise;
   ctx.fill();
   ctx.beginPath();
   for (let p = 0; p <= W; p += 2) {
-    const y = ty(hill(camX + p / sx));
+    const y = ty(hill(camX + p / sx, st.ph));
     p === 0 ? ctx.moveTo(p, y) : ctx.lineTo(p, y);
   }
   ctx.strokeStyle = C.ink;
@@ -265,9 +275,9 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `11px ${FONT}`;
   ctx.textAlign = "center";
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    if (hash(n) % 53 !== 0) continue;
+    if (hash(n ^ st.seed) % 53 !== 0) continue;
     const tx = (n - camX) * sx;
-    const gy = ty(hill(n));
+    const gy = ty(hill(n, st.ph));
     if (gy < 30 || gy > H - 8) continue;
     ctx.fillText("/\\", tx, gy - 24);
     ctx.fillText("/||\\", tx, gy - 14);
@@ -276,13 +286,13 @@ function draw(ctx, st, C, W, H, best) {
 
   // distance flags — a milestone planted on the slope every 200 m
   ctx.fillStyle = C.noise;
-  for (let n = Math.ceil((camX - START) / 200) * 200 + START; n <= camX + VIEW_W; n += 200) {
-    if (n <= START) continue;
+  for (let n = Math.ceil((camX - st.start) / 200) * 200 + st.start; n <= camX + VIEW_W; n += 200) {
+    if (n <= st.start) continue;
     const tx = (n - camX) * sx;
-    const gy = ty(hill(n));
+    const gy = ty(hill(n, st.ph));
     if (gy < 44 || gy > H - 8) continue;
     ctx.fillText("|", tx, gy - 6);
-    ctx.fillText(`${n - START}m`, tx, gy - 32);
+    ctx.fillText(`${n - st.start}m`, tx, gy - 32);
   }
 
   // rider — snowboarder + board, rotated with the slope / flight path.
@@ -334,9 +344,9 @@ function draw(ctx, st, C, W, H, best) {
   }
   if (intro >= 0.8) {
   const ang = st.crashed
-    ? -Math.atan(slope(st.x)) + 1.35 // ragdoll flat against the slope
+    ? -Math.atan(slope(st.x, st.ph)) + 1.35 // ragdoll flat against the slope
     : st.ground
-      ? -Math.atan(slope(st.x))
+      ? -Math.atan(slope(st.x, st.ph))
       : Math.max(-1.15, Math.min(1.15, -Math.atan2(st.vy, st.vx)));
   ctx.save();
   ctx.translate(px, py);
@@ -430,9 +440,9 @@ function draw(ctx, st, C, W, H, best) {
   ctx.fillStyle = C.accent2;
   ctx.lineWidth = 1.4;
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    const h = hash(n);
+    const h = hash(n ^ st.seed);
     if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
-    const gy = ty(tokenY(n, h)) + Math.sin(st.t * 3 + n) * 1.5;
+    const gy = ty(tokenY(n, h, st.ph)) + Math.sin(st.t * 3 + n) * 1.5;
     drawToken(ctx, (n - camX) * sx, gy);
   }
 
@@ -441,7 +451,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `12px ${FONT}`;
   ctx.fillStyle = C.dim;
   const left = Math.ceil(st.dayLen - st.t);
-  const hud = `${st.vx.toFixed(0)} m/s   ${Math.floor(st.x - START)} m   ${left > 0 ? `${left}s` : "night"}`;
+  const hud = `${st.vx.toFixed(0)} m/s   ${Math.floor(st.x - st.start)} m   ${left > 0 ? `${left}s` : "night"}`;
   ctx.fillText(hud, 12, 22);
   if (st.combo > 1) {
     ctx.fillStyle = st.combo >= 3 ? C.accent : C.dim;
@@ -485,7 +495,7 @@ function draw(ctx, st, C, W, H, best) {
     ctx.fillText(st.death, W / 2, H * 0.4);
     ctx.font = `13px ${FONT}`;
     ctx.fillStyle = C.ink;
-    ctx.fillText(`${Math.floor(st.x - START)} m   best ${best} m`, W / 2, H * 0.4 + 22);
+    ctx.fillText(`${Math.floor(st.x - st.start)} m   best ${best} m`, W / 2, H * 0.4 + 22);
     if (st.naming) {
       ctx.fillStyle = C.accent;
       ctx.fillText(
@@ -565,12 +575,12 @@ export default function Snowboard() {
       if (sim.current.over && !sim.current.recorded) {
         sim.current.recorded = true;
         setOver(true);
-        const d = Math.floor(sim.current.x - START);
+        const d = Math.floor(sim.current.x - sim.current.start);
         if (d > best.current) {
           best.current = d;
           saveBest(d);
         }
-        // leaderboard — top 5 runs, kept locally for now
+        // leaderboard — one row per player, best run wins
         postScore({
           d,
           why: sim.current.death,

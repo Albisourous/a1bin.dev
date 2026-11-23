@@ -1,8 +1,8 @@
 // Global snowboard leaderboard — Vercel serverless + Upstash Redis.
 //
-// GET  /api/scores        → top 5 rows [{d, why, name, at}], desc by d
+// GET  /api/scores        → all rows [{d, why, name, at}], desc by d
 // POST /api/scores {row}  → one row per rider, best-only; returns the
-//                           merged top 5 either way
+//                           merged board either way
 //
 // Storage: Redis hash `snowboard:riders`, field = rider name (""
 // for anonymous), value = JSON row. A stored row only updates when
@@ -14,7 +14,6 @@
 import { Redis } from "@upstash/redis";
 
 const HASH = "snowboard:riders";
-const TOP = 5;
 const MAX_D = 999999;
 
 // same rules as src/components/ide/scores.js cleanName — client-side
@@ -32,8 +31,7 @@ const board = async (redis) => {
   const all = await redis.hgetall(HASH);
   return Object.values(all ?? {})
     .map((v) => (typeof v === "string" ? JSON.parse(v) : v))
-    .sort((a, b) => b.d - a.d)
-    .slice(0, TOP);
+    .sort((a, b) => b.d - a.d);
 };
 
 export default async function handler(req, res) {
