@@ -87,6 +87,10 @@ export const SITE = {
   // Editor tabs. README.md is the landing view; the graph tab sits to
   // its left, Resume.pdf to its right.
   graphTab: "GRAPH",
+  // WIP views — activity-bar icons open these as placeholder tabs that
+  // render "under construction" until the real pages get built.
+  metricsTab: "metrics",
+  abTab: "a/b",
   openTabs: ["GRAPH", "README.md", "Resume.pdf"],
   activeTab: "README.md",
   graphCenter: "README.md",

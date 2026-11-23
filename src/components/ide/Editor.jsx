@@ -87,6 +87,14 @@ import { SITE } from "../../content/site.js";
 import Graph from "./Graph.jsx";
 import Snowboard from "./Snowboard.jsx";
 import Leaderboard from "./Leaderboard.jsx";
+import { ICONS } from "./icons.jsx";
+
+// WIP pseudo-tabs (SITE.metricsTab, SITE.abTab) — same icon the
+// activity bar uses, rendered large over an "under construction" note.
+const WIP_ICONS = {
+  [SITE.metricsTab]: ICONS.metrics,
+  [SITE.abTab]: ICONS.ab,
+};
 
 // Editable editor: a styled <pre> shows the content, a transparent
 // <textarea> on top owns the caret and input. Gutter numbers count the
@@ -95,6 +103,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
   const isGraph = active === SITE.graphTab;
   const isGame = active === SITE.gameFile;
   const isBoard = active === SITE.boardFile;
+  const wip = WIP_ICONS[active];
   const pdf = SITE.pdfs[active];
   const lines = text.split("\n");
   // Tab drag state: `dragTab` is being dragged, `overTab` is the drop
@@ -168,6 +177,11 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
       ) : isBoard ? (
         <div className="editor__game">
           <Leaderboard />
+        </div>
+      ) : wip ? (
+        <div className="editor__wip">
+          {wip}
+          <span>under construction</span>
         </div>
       ) : pdf ? (
         <div className="editor__pdf">

@@ -41,12 +41,16 @@ const resolve = (pathname) => {
   const hit = byPath[path.toLowerCase()] ?? byPath[`${path.toLowerCase()}.txt`];
   if (hit) return hit;
   const base = path.split("/").pop();
-  if (base === SITE.graphTab) return base;
+  if (base === SITE.graphTab || base === SITE.metricsTab) return base;
   return (
     [base, `${base}.txt`].find((f) => SITE.contents[f] || SITE.pdfs[f]) ?? null
   );
 };
 const boot = resolve(location.pathname);
+
+// Tabs that render a component instead of file text — graph view plus
+// the WIP placeholders. None of them count as "the explorer is open".
+const PSEUDO = new Set([SITE.graphTab, SITE.metricsTab, SITE.abTab]);
 
 export default function App() {
   // Tab state: `tabs` is the tab bar order, `active` the focused tab.
@@ -120,20 +124,24 @@ export default function App() {
         }}
       >
         <ActivityBar
-          explorerActive={mobile ? explorerOpen : active !== SITE.graphTab}
+          explorerActive={mobile ? explorerOpen : !PSEUDO.has(active)}
           onOpenExplorer={() => {
             if (mobile) return setExplorerOpen((o) => !o);
-            // Explorer never closes — the icon only leaves the graph
-            // view, returning to the most recent file tab.
-            if (active === SITE.graphTab) {
+            // Explorer never closes — the icon only leaves pseudo-tab
+            // views, returning to the most recent file tab.
+            if (PSEUDO.has(active)) {
               open(
-                [...tabs].reverse().find((t) => t !== SITE.graphTab) ??
+                [...tabs].reverse().find((t) => !PSEUDO.has(t)) ??
                   SITE.graphCenter
               );
             }
           }}
           graphActive={active === SITE.graphTab}
           onOpenGraph={() => open(SITE.graphTab)}
+          metricsActive={active === SITE.metricsTab}
+          onOpenMetrics={() => open(SITE.metricsTab)}
+          abActive={active === SITE.abTab}
+          onOpenAb={() => open(SITE.abTab)}
         />
         <Explorer
           drawer={explorerOpen}
