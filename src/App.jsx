@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SITE } from "./content/site.js";
 import TitleBar from "./components/ide/TitleBar.jsx";
 import ActivityBar from "./components/ide/ActivityBar.jsx";
@@ -25,24 +25,37 @@ function useMedia(query) {
   return m;
 }
 
-// Deep link — /README.md, /snowboard/game, or any explorer file name
+// URL → file, reverse of SITE.urls. Lowercase so /readme.md works.
+const byPath = {};
+for (const [name, p] of Object.entries(SITE.urls)) {
+  byPath[`/${p}`.toLowerCase()] = name;
+}
+
+// Deep link — /README.md, /snowboard/game, or any explorer file path
 // (.txt may be dropped) boots straight into that tab instead of the
-// default landing view.
-const boot = (() => {
-  const name = decodeURIComponent(
-    location.pathname.split("/").filter(Boolean).pop() ?? ""
+// default landing view. Basename alone works too (/game).
+const resolve = (pathname) => {
+  const path = decodeURIComponent(pathname).replace(/\/+$/, "");
+  if (!path) return null;
+  if (path.toLowerCase() === "/snowboard") return SITE.gameFile;
+  const hit = byPath[path.toLowerCase()] ?? byPath[`${path.toLowerCase()}.txt`];
+  if (hit) return hit;
+  const base = path.split("/").pop();
+  if (base === SITE.graphTab) return base;
+  return (
+    [base, `${base}.txt`].find((f) => SITE.contents[f] || SITE.pdfs[f]) ?? null
   );
-  if (name === "snowboard") return SITE.gameFile;
-  const file = [name, `${name}.txt`].find(
-    (f) => SITE.contents[f] || SITE.pdfs[f]
-  );
-  return file ?? (name === SITE.graphTab ? name : null);
-})();
+};
+const boot = resolve(location.pathname);
 
 export default function App() {
   // Tab state: `tabs` is the tab bar order, `active` the focused tab.
   // The graph tab is a pseudo-file named SITE.graphTab.
-  const [tabs, setTabs] = useState(boot ? [...SITE.openTabs, boot] : SITE.openTabs);
+  const [tabs, setTabs] = useState(
+    boot && !SITE.openTabs.includes(boot)
+      ? [...SITE.openTabs, boot]
+      : SITE.openTabs
+  );
   const [active, setActive] = useState(boot ?? SITE.activeTab);
   // In-session drafts: edits survive file switches but reset on reload.
   const [drafts, setDrafts] = useState({});
@@ -63,7 +76,7 @@ export default function App() {
   const text = drafts[active] ?? (SITE.contents[active] || []).join("\n");
 
   const open = (name) => {
-    if (!tabs.includes(name)) setTabs([...tabs, name]);
+    setTabs((ts) => (ts.includes(name) ? ts : [...ts, name]));
     setActive(name);
   };
   const close = (name) => {
@@ -81,6 +94,22 @@ export default function App() {
       return next;
     });
   };
+
+  // Address bar mirrors the active file; back/forward re-open it.
+  // First sync replaces so landing on / doesn't trap the Back button.
+  const firstNav = useRef(true);
+  useEffect(() => {
+    const wanted = active ? `/${SITE.urls[active] ?? active}` : "/";
+    const replace = firstNav.current;
+    firstNav.current = false;
+    if (decodeURIComponent(location.pathname) !== wanted)
+      history[replace ? "replaceState" : "pushState"]({}, "", wanted);
+  }, [active]);
+  useEffect(() => {
+    const fn = () => open(resolve(location.pathname) ?? SITE.activeTab);
+    window.addEventListener("popstate", fn);
+    return () => window.removeEventListener("popstate", fn);
+  }, []);
 
   return (
     <div className="ide">
