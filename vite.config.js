@@ -42,7 +42,7 @@ const gameShare = () => ({
     writeFileSync(
       "dist/snowboard/game/index.html",
       readFileSync("dist/index.html", "utf8")
-        .replaceAll("a1bin.dev — Albin Shrestha", "snowboard — a1bin.dev")
+        .replaceAll("Albin Shrestha — a1bin.dev", "snowboard — a1bin.dev")
         .replaceAll(
           "Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE.",
           "tiny-wings on canvas — hold space to drop, ride the ridge until night falls."

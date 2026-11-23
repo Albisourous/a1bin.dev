@@ -95,13 +95,11 @@ export default function App() {
     });
   };
 
-  // Tab title + canonical follow the active file for SEO. The URL
-  // itself never changes on navigation — deep links are inbound only.
+  // Canonical follows the active file for SEO. The URL itself never
+  // changes on navigation — deep links are inbound only.
   useEffect(() => {
     const wanted = active ? `/${SITE.urls[active] ?? active}` : "/";
-    document.title = active
-      ? `${active} — a1bin.dev`
-      : "a1bin.dev — Albin Shrestha";
+    document.title = "Albin Shrestha — a1bin.dev";
     document
       .querySelector('link[rel="canonical"]')
       ?.setAttribute("href", `https://a1bin.dev${wanted}`);

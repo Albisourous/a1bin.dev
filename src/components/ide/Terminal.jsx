@@ -10,14 +10,8 @@ function run(cmd, onOpen) {
   switch (name) {
     case "ls":
       return Object.keys(SITE.contents).join("  ");
-    case "whoami":
-      return "albin";
-    case "pwd":
-      return "/Users/albin/a1bin.dev";
     case "help":
       return SITE.termHelp;
-    case "echo":
-      return arg;
     case "cat":
     case "open": {
       if (!arg) return `${name}: missing file`;

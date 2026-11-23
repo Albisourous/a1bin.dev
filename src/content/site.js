@@ -79,8 +79,7 @@ for (const path of [...Object.keys(raw), ...Object.keys(pdfRaw)]) {
 }
 
 // `help` output — seeds the terminal scrollback and answers the live command.
-const termHelp =
-  "ls · cat <file> · open <file> · whoami · pwd · echo · clear";
+const termHelp = "ls · cat <file> · open <file> · clear";
 
 export const SITE = {
   domain: "a1bin.dev",
