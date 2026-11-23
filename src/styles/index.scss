@@ -103,14 +103,14 @@ body {
 
 .workbench {
   display: grid;
-  grid-template-columns: 44px var(--explorer-w, 210px) 5px 1fr 5px var(--chat-w, 330px);
-  grid-template-rows: minmax(0, 1fr) 5px var(--term-h, 180px);
+  grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 var(--chat-w, 330px);
+  grid-template-rows: minmax(0, 1fr) 0 var(--term-h, 180px);
   min-height: 0;
 
   // Closed panels keep their grid cells but zero the tracks — the
   // components stay mounted so chat history and term scrollback survive.
   &--no-chat {
-    grid-template-columns: 44px var(--explorer-w, 210px) 5px 1fr 0 0;
+    grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 0;
   }
 
   &--no-term {
@@ -125,13 +125,20 @@ body {
   display: none;
 }
 
-// Drag handle between panels — 5px hit strip, accents on hover and drag.
+// Drag handle between panels — the grid track is 0px and the 5px strip
+// overlays the previous panel's edge, so the seam stays the panel border
+// with no dead column beside it. Accents on hover and drag.
 .divider {
+  width: 5px;
+  margin-left: -5px;
   cursor: col-resize;
   touch-action: none;
   user-select: none;
 
   &--y {
+    width: auto;
+    height: 5px;
+    margin: -5px 0 0;
     cursor: row-resize;
   }
 
@@ -337,6 +344,12 @@ body.is-resizing-y {
 
     &.is-drop {
       box-shadow: inset 2px 0 0 var(--accent);
+    }
+
+    // No × on the graph tab — symmetric padding keeps its label centered
+    // where the other tabs' extra right padding makes room for theirs.
+    &--static {
+      padding-right: s.$space-4;
     }
   }
 
@@ -941,17 +954,17 @@ body.is-resizing-y {
 @media (max-width: 860px) {
   .workbench {
     grid-template-columns: 44px 1fr;
-    grid-template-rows: minmax(0, 1fr) 5px var(--chat-h, 240px) 5px var(--term-h, 180px);
+    grid-template-rows: minmax(0, 1fr) 0 var(--chat-h, 240px) 0 var(--term-h, 180px);
   }
 
   // Closed panels collapse their stacked rows the same way columns do
   // on desktop.
   .workbench--no-chat {
-    grid-template-rows: minmax(0, 1fr) 0 0 5px var(--term-h, 180px);
+    grid-template-rows: minmax(0, 1fr) 0 0 0 var(--term-h, 180px);
   }
 
   .workbench--no-term {
-    grid-template-rows: minmax(0, 1fr) 5px var(--chat-h, 240px) 0 0;
+    grid-template-rows: minmax(0, 1fr) 0 var(--chat-h, 240px) 0 0;
   }
 
   .workbench--no-chat.workbench--no-term {

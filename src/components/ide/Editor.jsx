@@ -129,7 +129,9 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
         {tabs.map((t) => (
           <button
             key={t}
-            className={`editor__tab${t === active ? " is-open" : ""}${
+            className={`editor__tab${t === SITE.graphTab ? " editor__tab--static" : ""}${
+              t === active ? " is-open" : ""
+            }${
               t === dragTab ? " is-drag" : ""
             }${t === overTab && t !== dragTab ? " is-drop" : ""}`}
             onClick={() => onSelect(t)}

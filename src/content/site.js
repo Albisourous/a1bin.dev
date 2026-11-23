@@ -91,9 +91,9 @@ export const SITE = {
   graphTab: "GRAPH",
   // WIP views — activity-bar icons open these as placeholder tabs that
   // render "under construction" until the real pages get built.
-  metricsTab: "metrics",
-  abTab: "a/b",
-  openTabs: ["GRAPH", "README.md", "Resume.pdf"],
+  metricsTab: "METRICS",
+  abTab: "A/B",
+  openTabs: ["GRAPH", "README.md", "Resume.pdf", "game.txt"],
   activeTab: "README.md",
   graphCenter: "README.md",
 

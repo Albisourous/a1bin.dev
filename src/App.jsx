@@ -41,7 +41,11 @@ const resolve = (pathname) => {
   const hit = byPath[path.toLowerCase()] ?? byPath[`${path.toLowerCase()}.txt`];
   if (hit) return hit;
   const base = path.split("/").pop();
-  if (base === SITE.graphTab || base === SITE.metricsTab) return base;
+  // Pseudo-tabs match the whole path — a basename can't hold "A/B".
+  const pseudo = [SITE.graphTab, SITE.metricsTab, SITE.abTab].find(
+    (t) => path.toLowerCase() === `/${t.toLowerCase()}`
+  );
+  if (pseudo) return pseudo;
   return (
     [base, `${base}.txt`].find((f) => SITE.contents[f] || SITE.pdfs[f]) ?? null
   );
