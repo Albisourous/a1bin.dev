@@ -31,17 +31,6 @@ export const EXPERIMENTS = [
       { key: "b", label: "chat closed", note: "rail icon only — pull to open" },
     ],
   },
-  {
-    id: "dive-input",
-    name: "dive mechanic",
-    status: "idea",
-    question: "how should the snowboarder dive?",
-    metric: "median run distance",
-    variants: [
-      { key: "a", label: "hold space", note: "press and hold to tuck" },
-      { key: "b", label: "tap to flap", note: "each tap lifts the nose" },
-    ],
-  },
 ];
 
 // UI copy for the A/B tab — every string the view renders lives here.
