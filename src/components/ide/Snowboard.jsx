@@ -222,10 +222,10 @@ function step(st, dt) {
     st.death = "stalled out";
     st.over = true;
   }
-  // night fell — past dayLen, the next touchdown ends the run. Riders
+  // out of time — past dayLen, the next touchdown ends the run. Riders
   // still in the air get the rest of the flight for free distance.
   if (st.t >= st.dayLen && st.ground && !st.over) {
-    st.death = "night fell";
+    st.death = "out of time";
     st.over = true;
   }
   st.cam += (st.y - st.cam) * Math.min(1, 8 * dt);
