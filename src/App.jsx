@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { SITE } from "./content/site.js";
 import TitleBar from "./components/ide/TitleBar.jsx";
 import ActivityBar from "./components/ide/ActivityBar.jsx";
@@ -95,25 +95,17 @@ export default function App() {
     });
   };
 
-  // Address bar mirrors the active file; back/forward re-open it.
-  // First sync replaces so landing on / doesn't trap the Back button.
-  const firstNav = useRef(true);
+  // Tab title + canonical follow the active file for SEO. The URL
+  // itself never changes on navigation — deep links are inbound only.
   useEffect(() => {
     const wanted = active ? `/${SITE.urls[active] ?? active}` : "/";
-    document.title = active ? `${active} — a1bin.dev` : "a1bin.dev — Albin Shrestha";
+    document.title = active
+      ? `${active} — a1bin.dev`
+      : "a1bin.dev — Albin Shrestha";
     document
       .querySelector('link[rel="canonical"]')
       ?.setAttribute("href", `https://a1bin.dev${wanted}`);
-    const replace = firstNav.current;
-    firstNav.current = false;
-    if (decodeURIComponent(location.pathname) !== wanted)
-      history[replace ? "replaceState" : "pushState"]({}, "", wanted);
   }, [active]);
-  useEffect(() => {
-    const fn = () => open(resolve(location.pathname) ?? SITE.activeTab);
-    window.addEventListener("popstate", fn);
-    return () => window.removeEventListener("popstate", fn);
-  }, []);
 
   return (
     <div className="ide">
