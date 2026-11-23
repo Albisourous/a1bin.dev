@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/game", "destination": "/snowboard/game", "permanent": true }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "functions": {
     "api/chat.js": { "includeFiles": "{src/content/site/**,api/resume.txt}" }

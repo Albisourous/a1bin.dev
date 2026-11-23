@@ -10,7 +10,7 @@ Design doc: `docs/DESIGN.md`.
   silently falls back to its localStorage cache and chat falls back to
   `SITE.cannedReplies`. Upstash env vars + `GROQ_API_KEY` for
   `vercel dev` live in `.env.local` (gitignored).
-- Chat agent: `api/chat.js` → Groq `llama-3.1-8b-instant`. Knowledge =
+- Chat agent: `api/chat.js` → Groq `openai/gpt-oss-20b`. Knowledge =
   `src/content/site/**` text + `api/resume.txt`, shipped via
   `vercel.json` `functions.includeFiles`. `api/resume.txt` is
   Resume.pdf extracted — regenerate when the PDF changes:

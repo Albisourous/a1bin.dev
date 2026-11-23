@@ -152,7 +152,7 @@ export const SITE = {
     { role: "user", text: "what are you working on right now?" },
     {
       role: "agent",
-      text: "working on improving this chat with ai albin :)",
+      text: "working on improving this chat with ai albin, try it :)",
     },
   ],
 
