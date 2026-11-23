@@ -23,4 +23,5 @@ export const METRICS = {
   axisStart: "30 days ago",
   axisNote: "one cell = one day · brighter = busier",
   axisEnd: "today",
+  in30: "in 30d",
 };

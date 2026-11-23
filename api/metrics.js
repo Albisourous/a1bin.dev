@@ -95,6 +95,12 @@ export default async function handler(req, res) {
       });
     }
     if (req.method === "POST") {
+      // beacons from crawlers get a quiet ok — counted as nothing
+      const BOT_UA =
+        /bot|crawler|spider|headless|lighthouse|pingdom|uptime|slurp|duckduck/i;
+      if (BOT_UA.test(req.headers["user-agent"] ?? "")) {
+        return res.status(200).json({ ok: true });
+      }
       const { event, id, exp, arm } = req.body ?? {};
       if (event === "assign") {
         // one arm of one live experiment — anything else is rejected,

@@ -88,6 +88,14 @@ export default async function handler(req, res) {
     if (n > DAILY_LIMIT) {
       return res.status(429).json({ error: "daily limit reached — try tomorrow" });
     }
+    // one accepted user message = one chat — counted on send so a
+    // Groq outage can't erase it; a metrics failure never breaks chat.
+    try {
+      const day = `metrics:day:${new Date().toISOString().slice(0, 10)}`;
+      await redis.hincrby("metrics:totals", "chats", 1);
+      await redis.hincrby(day, "chats", 1);
+      await redis.expire(day, 100 * 86400);
+    } catch {}
   }
 
   try {
@@ -110,17 +118,6 @@ export default async function handler(req, res) {
     }
     const reply = (await r.json()).choices?.[0]?.message?.content?.trim();
     if (!reply) return res.status(502).json({ error: "groq returned no reply" });
-    // one answered user message = one chat — counted after a real Groq
-    // reply so rate-limited calls don't inflate it. Server-side, so
-    // ad-blockers can't suppress it; a metrics failure never breaks chat.
-    if (redis) {
-      try {
-        const day = `metrics:day:${new Date().toISOString().slice(0, 10)}`;
-        await redis.hincrby("metrics:totals", "chats", 1);
-        await redis.hincrby(day, "chats", 1);
-        await redis.expire(day, 100 * 86400);
-      } catch {}
-    }
     return res.status(200).json({ reply });
   } catch (e) {
     return res.status(502).json({ error: `chat failed: ${e.message}` });

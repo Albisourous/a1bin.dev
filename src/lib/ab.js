@@ -3,6 +3,8 @@
 // No network, no deps — metrics can read the same key when they land.
 const UID_KEY = "ab.uid";
 
+import { analyticsOff, post } from "./metrics.js";
+
 const uid = () => {
   try {
     let u = localStorage.getItem(UID_KEY);
@@ -40,7 +42,7 @@ const SEEN_KEY = "ab.seen";
 
 export const reportAssignment = (exp) => {
   const arm = variantFor(exp);
-  if (!arm) return;
+  if (!arm || analyticsOff()) return;
   try {
     const seen = new Set(JSON.parse(localStorage.getItem(SEEN_KEY)) || []);
     if (seen.has(exp.id)) return;
@@ -49,12 +51,7 @@ export const reportAssignment = (exp) => {
   } catch {
     return;
   }
-  fetch("/api/metrics", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ event: "assign", exp: exp.id, arm: arm.key }),
-    keepalive: true,
-  }).catch(() => {});
+  post({ event: "assign", exp: exp.id, arm: arm.key });
 };
 
 // fire on import — the component chain loads this at boot, so every

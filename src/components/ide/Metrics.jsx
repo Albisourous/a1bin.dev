@@ -48,6 +48,12 @@ export default function Metrics() {
               {(totals[k] ?? 0).toLocaleString("en-US")}
             </div>
             <div className="metrics__label">{METRICS.stats[k]}</div>
+            <div className="metrics__sub">
+              {days
+                .reduce((sum, d) => sum + (d[k] ?? 0), 0)
+                .toLocaleString("en-US")}{" "}
+              {METRICS.in30}
+            </div>
           </div>
         ))}
       </div>
