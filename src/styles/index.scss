@@ -667,6 +667,11 @@ body.is-resizing-y {
     margin-bottom: s.$space-4;
   }
 
+  &__me {
+    color: var(--accent);
+    margin-left: 2em;
+  }
+
   &__share {
     font: inherit;
     color: var(--ink-dim);

@@ -149,7 +149,7 @@ export const shareText = (me, runD) => {
     Math.min(mine < 0 ? 0 : mine - 1, board.length - 3)
   );
   const rows = board.slice(start, start + 3);
-  if (!rows.length) return `snowboard\n\nbeat me → a1bin.dev/snowboard/game`;
+  if (!rows.length) return `snowboard\n\nhttps://a1bin.dev/game`;
   const rankW = Math.max(...rows.map((_, i) => String(start + i + 1).length)) + 2;
   const nameW = Math.max(...rows.map((r) => (r.name ?? "rider").length));
   const maxD = rows[0].d;
@@ -158,7 +158,8 @@ export const shareText = (me, runD) => {
     const tag = i === mine - start ? " ← me" : "";
     return `${`[${start + i + 1}]`.padEnd(rankW)} ${(r.name ?? "rider").padEnd(nameW)} ${bar} ${r.d}m${tag}`;
   });
-  return `snowboard\n${lines.join("\n")}\n\nbeat me → a1bin.dev/snowboard/game`;
+  const beat = (mine >= 0 ? board[mine].d : runD) ?? rows[0].d;
+  return `snowboard\n\n${lines.join("\n")}\n\nbeat ${beat}m\n\nhttps://a1bin.dev/game`;
 };
 
 // native share sheet where the platform has one (iOS/macOS → iMessage

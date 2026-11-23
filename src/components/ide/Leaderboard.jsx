@@ -43,7 +43,12 @@ export default function Leaderboard() {
           {scores.map((r, i) => (
             <div key={i} className="board__row">
               <span className="board__dist">{r.d}m</span>
-              <span className="board__who">{r.name ?? "rider"}</span>
+              <span className="board__who">
+                {r.name ?? "rider"}
+                {(r.name ?? "rider") === (riderName() || "rider") && (
+                  <span className="board__me">←</span>
+                )}
+              </span>
             </div>
           ))}
         </>
