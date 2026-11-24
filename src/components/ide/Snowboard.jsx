@@ -20,15 +20,12 @@ import { trackEvent } from "../../lib/metrics.js";
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
 // sun sets as you ride: 15 seconds of daylight banked and never
-// more — the buffer is the mistake budget. Ringed-dot tokens buy
-// +1s; clean downslope slides pay a small bonus plus a slice of
-// the flight it took to land. Perfect play refills toward 15s but
-// can't hoard, rough landings and missed tokens bleed it, and at
-// zero the next touchdown ends it — the last flight glides out.
-// And the sun sinks faster the longer you ride: the deadline creeps
-// in at t/60 s/s, so even perfect runs bend back toward night.
-// Tokens hang on jump arcs: daylight is earned by launching high
-// at speed. Hills steepen with distance.
+// more — the buffer is the mistake budget, and an honest one: a
+// second on the clock is a real second. Ringed-dot tokens buy +1s
+// and are the only daylight there is; they hang on jump arcs, so
+// daylight is earned by launching high at speed. Miss fifteen of
+// them and the next touchdown ends it — the last flight glides out.
+// Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -64,7 +61,6 @@ const CARVE = 14; // held-on-snow friction — digging in scrubs speed
 const V_MIN = 10;
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
-const RAMP = 60; // seconds — deadline decay grows at t/RAMP per sec
 const INTRO = 0.55; // lift ride before the run starts
 
 const fresh = () => {
@@ -83,7 +79,6 @@ const fresh = () => {
     ground: true,
     held: false,
     combo: 0, // consecutive perfect slides
-    air: 0, // st.t at launch — hangtime refunds land on a clean slide
     fx: null, // floating feedback label {x, y, t, text, kind}
     intro: INTRO, // riding the lift in — the clock hasn't started
     t: 0, // seconds ridden — night falls at dayLen
@@ -145,7 +140,6 @@ function step(st, dt) {
     // i.e. the hill curved away under the board
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
       st.ground = false;
-      st.air = st.t; // hangtime clock starts at launch
       // lip kick — a sharp crest throws extra height, like a real kicker
       st.vy = Math.min(st.vy * 1.25, 28);
       st.vy -= g * dt;
@@ -182,14 +176,6 @@ function step(st, dt) {
         st.vy = s2 * st.vx;
         st.combo += 1;
         st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
-        // daylight income — only a clean downslope landing pays: a
-        // small slide bonus (doubled in fever) plus a slice of the
-        // flight it took to arrive. The bank caps at the starting
-        // 15s — income is only worth what mistakes already spent.
-        st.dayLen = Math.min(
-          st.dayLen + (st.combo >= 3 ? 0.5 : 0.25) + (st.t - st.air) * 0.1,
-          st.t + RUN_LEN
-        );
         st.fx = {
           x: st.x,
           y: st.y,
@@ -243,10 +229,6 @@ function step(st, dt) {
     st.death = "stalled out";
     st.over = true;
   }
-  // the sun sinks faster with time — the deadline decays t/RAMP per
-  // second on top of the 1s/s burn, so income can't sustain a run
-  // forever; a perfect run just dies later and richer
-  st.dayLen -= (st.t / RAMP) * dt;
   // out of time — past dayLen, the next touchdown ends the run. Riders
   // still in the air get the rest of the flight for free distance.
   if (st.t >= st.dayLen && st.ground && !st.over) {
