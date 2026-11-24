@@ -108,6 +108,17 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
 const sunGap = (n) => Math.min(37, Math.round((24 + Math.floor(Math.max(0, n) / 55)) / 1.25));
+// a token at world x — candidacy is hashed per meter, and a
+// candidate survives only with clear air behind it. The lookback
+// runs on candidates, not survivors, so clumps collapse to their
+// first member instead of flapping.
+const TOKEN_MIN = 9; // meters of clear snow before a token may spawn
+const isToken = (n, seed) => {
+  if (placeHash(n, seed) % sunGap(n) !== 0) return false;
+  for (let k = n - TOKEN_MIN; k < n; k++)
+    if (placeHash(k, seed) % sunGap(k) === 0) return false;
+  return true;
+};
 // token height at world x, or null where none belongs. Terrain
 // decides the hang: flat and downhill ground caps a token at
 // helmet level — pickable on the ride-through — while rising
@@ -116,7 +127,8 @@ const sunGap = (n) => Math.min(37, Math.round((24 + Math.floor(Math.max(0, n) / 
 // breadcrumb for runs still building speed.
 const tokenY = (n, h, ph) => {
   if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
-  const band = hill(n, ph) + 1.2 + ((h >> 5) % 3) * 0.5;
+  // knee-to-head jitter — some skim the boot, some need a hop
+  const band = hill(n, ph) + 0.6 + ((h >> 5) % 21) / 10;
   if (slope(n, ph) <= 0.2) return band;
   let y = -Infinity;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
@@ -221,7 +233,7 @@ function step(st, dt) {
   // by the 15s buffer like everything else.
   const pn = Math.round(st.x);
   const ph = placeHash(pn, st.seed);
-  if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
+  if (isToken(pn, st.seed) && !st.collected.has(pn)) {
     const py = tokenY(pn, ph, st.ph);
     if (py != null && (st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
@@ -492,7 +504,7 @@ function draw(ctx, st, C, W, H, best) {
   ctx.lineWidth = 1.4;
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
     const h = placeHash(n, st.seed);
-    if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
+    if (!isToken(n, st.seed) || st.collected.has(n)) continue;
     const wy = tokenY(n, h, st.ph);
     if (wy == null) continue;
     const gy = ty(wy) + Math.sin(st.t * 3 + n) * 1.5;
