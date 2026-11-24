@@ -108,16 +108,16 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
 const sunGap = (n) => Math.min(37, Math.round((24 + Math.floor(Math.max(0, n) / 55)) / 1.25));
-// token height at world x, or null where none belongs. A token only
-// exists where a committed jump passes: trace the float ballistic
-// off every crest in the run-up at top rider speed and keep the
-// highest reach at x=n — if no jump's arc crosses the head-height
-// band there, the spot earns no token. Tokens then hang inside that
-// band: reachable from the snow, never at the arc's ceiling. One in
-// four sits on the arc itself, capped at hop height. A rare few
-// stay at boot level as a breadcrumb for runs still building speed.
+// token height at world x, or null where none belongs. Terrain
+// decides the hang: flat and downhill ground caps a token at
+// helmet level — pickable on the ride-through — while rising
+// ground is a launch, and there the token may sit on the jump arc,
+// capped at hop height. A rare few stay at boot level as a
+// breadcrumb for runs still building speed.
 const tokenY = (n, h, ph) => {
   if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
+  const band = hill(n, ph) + 1.2 + ((h >> 5) % 3) * 0.5;
+  if (slope(n, ph) <= 0.2) return band;
   let y = -Infinity;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
     const v = 55;
@@ -125,9 +125,7 @@ const tokenY = (n, h, ph) => {
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  const band = hill(n, ph) + 1.4 + ((h >> 5) % 4) * 0.5;
-  if (y <= band + 0.4) return null;
-  return (h >> 9) % 4 === 0 ? Math.min(y, hill(n, ph) + 6) : band;
+  return y > band + 0.6 ? Math.min(y, hill(n, ph) + 5) : band;
 };
 
 function step(st, dt) {
