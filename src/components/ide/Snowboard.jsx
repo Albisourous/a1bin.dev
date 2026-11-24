@@ -187,7 +187,7 @@ function step(st, dt) {
         // flight it took to arrive. The bank caps at the starting
         // 15s — income is only worth what mistakes already spent.
         st.dayLen = Math.min(
-          st.dayLen + (st.combo >= 3 ? 0.5 : 0.25) + (st.t - st.air) * 0.1,
+          st.dayLen + (st.combo >= 3 ? 0.25 : 0.1) + (st.t - st.air) * 0.05,
           st.t + RUN_LEN
         );
         st.fx = {
