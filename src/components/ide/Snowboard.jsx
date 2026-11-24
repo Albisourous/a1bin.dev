@@ -25,6 +25,8 @@ import { trackEvent } from "../../lib/metrics.js";
 // the flight it took to land. Perfect play refills toward 15s but
 // can't hoard, rough landings and missed tokens bleed it, and at
 // zero the next touchdown ends it — the last flight glides out.
+// And the sun sinks faster the longer you ride: the deadline creeps
+// in at t/60 s/s, so even perfect runs bend back toward night.
 // Tokens hang on jump arcs: daylight is earned by launching high
 // at speed. Hills steepen with distance.
 
@@ -62,6 +64,7 @@ const CARVE = 14; // held-on-snow friction — digging in scrubs speed
 const V_MIN = 10;
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
+const RAMP = 60; // seconds — deadline decay grows at t/RAMP per sec
 const INTRO = 0.55; // lift ride before the run starts
 
 const fresh = () => {
@@ -240,6 +243,10 @@ function step(st, dt) {
     st.death = "stalled out";
     st.over = true;
   }
+  // the sun sinks faster with time — the deadline decays t/RAMP per
+  // second on top of the 1s/s burn, so income can't sustain a run
+  // forever; a perfect run just dies later and richer
+  st.dayLen -= (st.t / RAMP) * dt;
   // out of time — past dayLen, the next touchdown ends the run. Riders
   // still in the air get the rest of the flight for free distance.
   if (st.t >= st.dayLen && st.ground && !st.over) {
