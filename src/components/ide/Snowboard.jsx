@@ -19,15 +19,14 @@ import { trackEvent } from "../../lib/metrics.js";
 // transition for a "perfect slide" — flat landings bounce, upslope
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
-// sun sets as you ride: 15 seconds of daylight banked, burning 1s/s.
-// Daylight is earned, never found — ringed-dot tokens buy +1s (the
-// double-ringed +2s) and every clean downslope landing pays a slide
-// bonus (+0.5s, +1s in fever) plus half the flight it took to get
-// there. Perfect chains hold the bank near 15s; rough landings and
-// low hops earn nothing and the bank bleeds out. Once night falls
-// the next touchdown ends it — the last flight glides out. Tokens
-// hang on jump arcs: daylight is earned by launching high at speed.
-// Hills steepen with distance.
+// sun sets as you ride: 15 seconds of daylight banked and never
+// more — the buffer is the mistake budget. Ringed-dot tokens buy
+// +1s; clean downslope slides pay a small bonus plus a slice of
+// the flight it took to land. Perfect play refills toward 15s but
+// can't hoard, rough landings and missed tokens bleed it, and at
+// zero the next touchdown ends it — the last flight glides out.
+// Tokens hang on jump arcs: daylight is earned by launching high
+// at speed. Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -179,16 +178,18 @@ function step(st, dt) {
         st.combo += 1;
         st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
         // daylight income — only a clean downslope landing pays: a
-        // slide bonus that doubles in fever plus half the flight it
-        // took to arrive. Perfect chains net ~1s/s and hold the bank;
-        // rough landings pay nothing, so mistakes slowly lose time.
-        const gain = (st.combo >= 3 ? 1 : 0.5) + (st.t - st.air) * 0.5;
-        st.dayLen += gain;
+        // small slide bonus (doubled in fever) plus a slice of the
+        // flight it took to arrive. The bank caps at the starting
+        // 15s — income is only worth what mistakes already spent.
+        st.dayLen = Math.min(
+          st.dayLen + (st.combo >= 3 ? 0.5 : 0.25) + (st.t - st.air) * 0.25,
+          st.t + RUN_LEN
+        );
         st.fx = {
           x: st.x,
           y: st.y,
           t: 0,
-          text: `${st.combo > 1 ? `perfect x${st.combo}` : "perfect!"} +${gain.toFixed(1)}s`,
+          text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
           kind: "good",
         };
       } else if (s2 > 0.28) {
@@ -213,17 +214,16 @@ function step(st, dt) {
     }
   }
   // time tokens — strung along jump arcs and the snow; the rider's
-  // body has to touch one. Each buys a second of daylight; the
-  // double-ringed ones buy two.
+  // body has to touch one. Each buys a second of daylight, capped
+  // by the 15s buffer like everything else.
   const pn = Math.round(st.x);
   const ph = placeHash(pn, st.seed);
   if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
     const py = tokenY(pn, ph, st.ph);
     if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
-      const gain = (ph >> 9) % 5 === 0 ? 2 : 1;
       st.collected.add(pn);
-      st.dayLen += gain;
-      st.fx = { x: pn, y: py, t: 0, text: `+${gain}s`, kind: "time" };
+      st.dayLen = Math.min(st.dayLen + 1, st.t + RUN_LEN);
+      st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
     }
   }
   if (st.fx && (st.fx.t += dt) > 0.9) st.fx = null;
@@ -265,17 +265,11 @@ function drawSun(ctx, x, y, r) {
   }
 }
 
-// a time token — ringed dot, reads like a coin. Worth +1s; the rare
-// double-ringed ones are worth +2s.
-function drawToken(ctx, x, y, big) {
+// a time token — ringed dot, reads like a coin. Each is worth +1s.
+function drawToken(ctx, x, y) {
   ctx.beginPath();
-  ctx.arc(x, y, big ? 6 : 4, 0, Math.PI * 2);
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
   ctx.stroke();
-  if (big) {
-    ctx.beginPath();
-    ctx.arc(x, y, 3.6, 0, Math.PI * 2);
-    ctx.stroke();
-  }
   ctx.beginPath();
   ctx.arc(x, y, 1.6, 0, Math.PI * 2);
   ctx.fill();
@@ -488,9 +482,8 @@ function draw(ctx, st, C, W, H, best) {
     ctx.globalAlpha = 1;
   }
 
-  // time tokens — ringed dots bobbing on the snow, +1s each, +2s for
-  // the double-ringed. Drawn over the night dim so they read as
-  // beacons in the dark.
+  // time tokens — ringed dots bobbing on the snow, +1s each. Drawn
+  // over the night dim so they read as beacons in the dark.
   ctx.strokeStyle = C.accent2;
   ctx.fillStyle = C.accent2;
   ctx.lineWidth = 1.4;
@@ -498,7 +491,7 @@ function draw(ctx, st, C, W, H, best) {
     const h = placeHash(n, st.seed);
     if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
     const gy = ty(tokenY(n, h, st.ph)) + Math.sin(st.t * 3 + n) * 1.5;
-    drawToken(ctx, (n - camX) * sx, gy, (h >> 9) % 5 === 0);
+    drawToken(ctx, (n - camX) * sx, gy);
   }
 
   // HUD — monospace text, same voice as the rest of the IDE
