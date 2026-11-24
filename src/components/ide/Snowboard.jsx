@@ -104,25 +104,27 @@ const hash = (n) => {
 // shared opening — early runs match, later runs scatter
 const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 
-// sun tokens thin out with distance until a plateau — from ~700m on
+// sun tokens thin out with distance until a plateau — from ~1km on
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
-const sunGap = (n) => Math.min(36, Math.round((29 + Math.floor(Math.max(0, n) / 45)) / 1.25));
-// token height at world x. Nearly all sit on a jump arc: trace the
-// float ballistic off every crest in the run-up at top rider speed
-// and keep the highest reach at x=n — grabbing one means leaving
-// the snow fast. A rare few stay at boot-to-torso level as a
-// breadcrumb for slower runs.
+const sunGap = (n) => Math.min(46, Math.round((30 + Math.floor(Math.max(0, n) / 55)) / 1.25));
+// token height at world x, or null where none belongs. A token only
+// exists where a committed jump passes: trace the float ballistic
+// off every crest in the run-up at top rider speed, keep the highest
+// reach at x=n, and spawn it only when that reach clears the snow by
+// a real margin — optimal riders find tokens on their line, cruisers
+// find empty slopes. A rare few sit at boot-to-torso level as a
+// breadcrumb for runs still building speed.
 const tokenY = (n, h, ph) => {
-  if ((h >> 7) % 8 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
-  let y = hill(n, ph) + 2.2;
+  if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
+  let y = -Infinity;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
     const v = 55;
     const vy0 = Math.min(Math.max(0, slope(x0 - 0.6, ph)) * v * 1.25, 28);
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  return y;
+  return y > hill(n, ph) + 3.5 ? y : null;
 };
 
 function step(st, dt) {
@@ -220,7 +222,7 @@ function step(st, dt) {
   const ph = placeHash(pn, st.seed);
   if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
     const py = tokenY(pn, ph, st.ph);
-    if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
+    if (py != null && (st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
       st.dayLen = Math.min(st.dayLen + 1, st.t + RUN_LEN);
       st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
@@ -490,7 +492,9 @@ function draw(ctx, st, C, W, H, best) {
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
     const h = placeHash(n, st.seed);
     if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
-    const gy = ty(tokenY(n, h, st.ph)) + Math.sin(st.t * 3 + n) * 1.5;
+    const wy = tokenY(n, h, st.ph);
+    if (wy == null) continue;
+    const gy = ty(wy) + Math.sin(st.t * 3 + n) * 1.5;
     drawToken(ctx, (n - camX) * sx, gy);
   }
 
