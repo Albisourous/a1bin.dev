@@ -9,6 +9,7 @@ import {
   shareScore,
 } from "./scores.js";
 import { trackEvent } from "../../lib/metrics.js";
+import { SITE } from "../../content/site.js";
 
 // ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
 // to drop into the downhill and build speed; release to float off the
@@ -577,7 +578,6 @@ function draw(ctx, st, C, W, H, best) {
         W / 2,
         H * 0.4 + 64
       );
-      ctx.fillText("scores → snowboard/leaderboard.txt", W / 2, H * 0.4 + 82);
     }
     ctx.textAlign = "left";
   }
@@ -589,7 +589,7 @@ const commitName = (st) => {
   st.nameBuf = "";
 };
 
-export default function Snowboard() {
+export default function Snowboard({ onOpenFile }) {
   const sim = useRef(null);
   if (!sim.current) sim.current = fresh();
   const best = useRef(loadBest());
@@ -787,7 +787,7 @@ export default function Snowboard() {
         </div>
       )}
       {over && (
-        <>
+        <div className="game__actions">
           <button
             className="game__share"
             onPointerDown={(e) => e.stopPropagation()}
@@ -795,6 +795,17 @@ export default function Snowboard() {
           >
             {shareMsg}
           </button>
+          <a
+            className="game__board"
+            href={`/${encodeURI(SITE.urls[SITE.boardFile] ?? SITE.boardFile)}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.preventDefault();
+              onOpenFile?.(SITE.boardFile);
+            }}
+          >
+            leaderboard
+          </a>
           <button
             className="game__restart"
             onPointerDown={(e) => e.stopPropagation()}
@@ -802,7 +813,7 @@ export default function Snowboard() {
           >
             restart
           </button>
-        </>
+        </div>
       )}
     </div>
   );

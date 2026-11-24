@@ -755,15 +755,24 @@ body.is-resizing-y {
     }
   }
 
-  // Restart — the only way back onto the hill. A real button so a stray
-  // tap or a held space can't eat a run (or its name prompt). Share sits
-  // beside it — copies a brag card for the group chat.
-  &__restart,
-  &__share {
+  // The run's end actions — share a brag card, check the board, ride
+  // again. Restart is the only way back onto the hill: a real button so
+  // a stray tap or a held space can't eat a run (or its name prompt).
+  &__actions {
     position: absolute;
     left: 50%;
     top: 68%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.2em;
     z-index: 1;
+  }
+
+  &__restart,
+  &__share,
+  &__board {
     font-family: t.$font-doc;
     font-size: 15px;
     color: var(--ink);
@@ -771,19 +780,12 @@ body.is-resizing-y {
     border: 1px solid var(--border);
     padding: 0.3em 1.4em;
     cursor: pointer;
+    text-decoration: none;
 
     &:hover {
       color: var(--accent);
       border-color: var(--accent);
     }
-  }
-
-  &__restart {
-    transform: translateX(0.6em);
-  }
-
-  &__share {
-    transform: translateX(calc(-100% - 0.6em));
   }
 }
 

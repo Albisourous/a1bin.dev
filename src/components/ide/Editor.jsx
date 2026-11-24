@@ -178,7 +178,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
         </div>
       ) : isGame ? (
         <div className="editor__game">
-          <Snowboard />
+          <Snowboard onOpenFile={onOpenFile} />
         </div>
       ) : isBoard ? (
         <div className="editor__game">
