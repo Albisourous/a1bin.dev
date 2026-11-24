@@ -9,6 +9,7 @@ import Chat from "./components/ide/Chat.jsx";
 import Terminal from "./components/ide/Terminal.jsx";
 import StatusBar from "./components/ide/StatusBar.jsx";
 import ResizeHandle from "./components/ide/ResizeHandle.jsx";
+import { ICONS } from "./components/ide/icons.jsx";
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const MOBILE_Q = "(max-width: 860px)";
@@ -117,6 +118,97 @@ export default function App() {
   const [termOpen, setTermOpen] = useState(() => !startsMobile());
   // Mobile has no explorer column — the icon toggles a drawer instead.
   const [explorerOpen, setExplorerOpen] = useState(false);
+  // Red title-bar dot drops the whole IDE like a curtain (Zelda egg).
+  const [curtains, setCurtains] = useState(false);
+  // `gone` = drop animation finished → display:none so the panel can't
+  // be scrolled/dragged back into view (it's parked off-screen).
+  const [gone, setGone] = useState(false);
+  // `pull` = sword drag on the reveal screen. `p` is how far the IDE
+  // has been dragged back up (0 = parked below, 1 = fully restored);
+  // `settle` switches on the transition so a release glides home.
+  const [pull, setPull] = useState(null);
+  const pullRef = useRef(null); // { y0, moved, p } while a gesture runs
+  const pullBusy = useRef(false); // settle transition in flight
+  const wheelTimer = useRef(null);
+  const settleTimer = useRef(null); // transitionend fallback
+  const swallowClick = useRef(false); // drag ≠ tap — eat the click
+  const restore = () => {
+    pullBusy.current = false;
+    pullRef.current = null;
+    clearTimeout(settleTimer.current);
+    setCurtains(false);
+    setGone(false);
+    setPull(null);
+  };
+
+  // Release a pull at progress `p`: past halfway snaps the IDE home,
+  // short pulls glide back down and park (display:none) again.
+  const releasePull = (p) => {
+    const up = p >= 0.5;
+    // Reduced motion → no transition, so no transitionend: resolve now.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setPull(null);
+      if (up) restore();
+      else setGone(true);
+      return;
+    }
+    // A zero-distance glide never fires transitionend — resolving now
+    // instead of settling would leave pullBusy stuck forever.
+    if (!up && p <= 0.02) {
+      setPull(null);
+      setGone(true);
+      return;
+    }
+    pullBusy.current = true;
+    setPull({ p: up ? 1 : 0, settle: true });
+    // transitionend can still go missing (interrupted glide) — resolve
+    // to the same end state after the transition's span either way.
+    clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      pullBusy.current = false;
+      if (up) restore();
+      else {
+        setPull(null);
+        setGone(true);
+      }
+    }, 500);
+  };
+
+  // Pull-up gesture — pointer capture keeps it alive once the rising
+  // IDE slides over the screen. 45vh of travel = a full pull. Works
+  // anywhere on .secret; the sword is just the visible affordance.
+  const swordDown = (e) => {
+    if (pullBusy.current || e.target.closest("a")) return;
+    // Capture can throw on older WebViews — drag still works while
+    // the pointer stays over the screen without it.
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+    pullRef.current = { y0: e.clientY, moved: false, p: 0 };
+    setGone(false);
+    setPull({ p: 0 });
+  };
+  const swordMove = (e) => {
+    if (!pullRef.current) return;
+    const dy = pullRef.current.y0 - e.clientY;
+    if (Math.abs(dy) > 6) pullRef.current.moved = true;
+    pullRef.current.p = clamp(dy / (window.innerHeight * 0.45), 0, 1);
+    setPull({ p: pullRef.current.p });
+  };
+  const swordUp = () => {
+    if (!pullRef.current) return;
+    swallowClick.current = pullRef.current.moved ?? false;
+    const p = pullRef.current.p ?? 0;
+    pullRef.current = null;
+    releasePull(p);
+  };
+  const swordClick = () => {
+    if (swallowClick.current) {
+      swallowClick.current = false;
+      return;
+    }
+    restore();
+  };
   const mobile = useMedia(MOBILE_Q);
   const text = drafts[active] ?? (SITE.contents[active] || []).join("\n");
 
@@ -180,6 +272,50 @@ export default function App() {
     if (SITE.pdfs[active]) trackEvent("resume");
   }, [active]);
 
+  // Curtain reveal: Escape restores. Any wheel scroll feeds the same
+  // pull state as a drag — 160ms of quiet ends the gesture and the
+  // release logic decides whether it snaps home or falls back.
+  useEffect(() => {
+    if (!curtains) return;
+    const esc = (e) => e.key === "Escape" && restore();
+    const wheel = (e) => {
+      if (pullBusy.current) return;
+      // Normalize: deltaMode 1 = lines (Firefox) → ~16px, 2 = pages.
+      // Direction is ambiguous (wheel-up vs trackpad swipe-up send
+      // opposite signs) — nothing else scrolls here, so either way
+      // means "bring it back".
+      const d =
+        e.deltaMode === 1
+          ? e.deltaY * 16
+          : e.deltaMode === 2
+            ? e.deltaY * window.innerHeight
+            : e.deltaY;
+      if (!pullRef.current) {
+        setGone(false);
+        pullRef.current = { p: 0 };
+      }
+      pullRef.current.p = clamp(
+        pullRef.current.p + Math.abs(d) / (window.innerHeight * 0.45),
+        0,
+        1
+      );
+      setPull({ p: pullRef.current.p });
+      clearTimeout(wheelTimer.current);
+      wheelTimer.current = setTimeout(() => {
+        const p = pullRef.current?.p ?? 0;
+        pullRef.current = null;
+        releasePull(p);
+      }, 160);
+    };
+    window.addEventListener("keydown", esc);
+    window.addEventListener("wheel", wheel, { passive: true });
+    return () => {
+      window.removeEventListener("keydown", esc);
+      window.removeEventListener("wheel", wheel);
+      clearTimeout(wheelTimer.current);
+    };
+  }, [curtains]);
+
   // Explorer rows and editor tabs are real anchors now — dropping one
   // on an unhandled target would navigate. Nothing on the page consumes
   // external drops, so swallow every drop that escapes a handled zone.
@@ -204,9 +340,36 @@ export default function App() {
       ?.setAttribute("href", `https://a1bin.dev${wanted}`);
   }, [active, split]);
 
+  // While `pull` is live the IDE is position-controlled by the drag —
+  // no drop/gone class, transform comes from the inline style.
+  const ideClass = pull
+    ? `ide${pull.settle ? " ide--settle" : ""}`
+    : `ide${gone ? " ide--gone" : curtains ? " ide--drop" : ""}`;
+
   return (
-    <div className="ide" ref={bindIosIframeTouch}>
-      <TitleBar />
+    <>
+      <div
+        className={ideClass}
+        style={
+          // Parked 5vh below the screen — a small pull already shows.
+          pull
+            ? { transform: `translateY(${(1 - pull.p) * 105}vh)` }
+            : undefined
+        }
+        ref={bindIosIframeTouch}
+        onAnimationEnd={(e) => e.animationName === "ide-drop" && setGone(true)}
+        onTransitionEnd={(e) => {
+          if (e.target !== e.currentTarget || !pull?.settle) return;
+          clearTimeout(settleTimer.current);
+          pullBusy.current = false;
+          if (pull.p >= 1) restore();
+          else {
+            setPull(null);
+            setGone(true);
+          }
+        }}
+      >
+        <TitleBar onClose={() => setCurtains(true)} />
       <div
         className={`workbench${split ? " workbench--split" : ""}${chatOpen ? "" : " workbench--no-chat"}${
           termOpen ? "" : " workbench--no-term"
@@ -325,6 +488,51 @@ export default function App() {
         termActive={termOpen}
         onToggleTerm={() => setTermOpen((o) => !o)}
       />
-    </div>
+      </div>
+      {curtains && (
+        <div
+          className="secret"
+          onPointerDown={swordDown}
+          onPointerMove={swordMove}
+          onPointerUp={swordUp}
+          onPointerCancel={swordUp}
+          // A real drag shouldn't activate a link under the release.
+          onClickCapture={(e) => {
+            if (swallowClick.current) {
+              e.preventDefault();
+              e.stopPropagation();
+              swallowClick.current = false;
+            }
+          }}
+        >
+          <p>
+            {SITE.curtain.before}{" "}
+            <a
+              href={SITE.pdfs["Resume.pdf"]}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => trackEvent("resume")}
+            >
+              {SITE.curtain.link}
+            </a>
+            <span className="secret__caret" aria-hidden="true" />
+          </p>
+          <a className="secret__alt" href={SITE.mailto}>
+            {SITE.curtain.alt}
+          </a>
+          <button
+            className={`secret__sword${pull?.settle ? " secret__sword--settle" : ""}`}
+            style={
+              pull ? { transform: `translateY(${-pull.p * 45}vh)` } : undefined
+            }
+            onClick={swordClick}
+            aria-label="reopen the ide"
+          >
+            {ICONS.sword}
+            {SITE.curtain.hint}
+          </button>
+        </div>
+      )}
+    </>
   );
 }

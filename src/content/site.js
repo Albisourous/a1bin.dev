@@ -152,6 +152,18 @@ export const SITE = {
   chatTitle: "chat",
   emptyEditor: "no files open",
 
+  // Zelda easter egg — the title bar's red "close" dot drops the whole
+  // IDE like a curtain and reveals this behind it. "this" is the sword:
+  // a link to Resume.pdf. `alt` is the mailto second line.
+  curtain: {
+    before: "it's dangerous to go alone. take",
+    link: "this",
+    alt: "or email me instead",
+    // The pull handle — the sword icon in icons.jsx, drag it up (or
+    // scroll/swipe up) to raise the IDE again.
+    hint: "scroll or drag up",
+  },
+
   // Activity bar — far-left icon rail. View buttons are defined in
   // ActivityBar.jsx; these are the outbound links pinned to the bottom
   // of the rail. `icon` names an SVG in ActivityBar.jsx.

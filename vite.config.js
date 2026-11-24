@@ -45,7 +45,7 @@ const gameShare = () => ({
         .replaceAll("Albin Shrestha — a1bin.dev", "snowboard — a1bin.dev")
         .replaceAll(
           "Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE.",
-          "tiny-wings on canvas — hold space to drop, ride the ridge until night falls."
+          "hold space to drop, ride the ridge until night falls."
         )
         .replaceAll('href="https://a1bin.dev/"', 'href="https://a1bin.dev/snowboard/game"')
         .replaceAll(
