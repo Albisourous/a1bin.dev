@@ -105,7 +105,7 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 // sun tokens thin out with distance until a plateau — from ~1km on
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
-const sunGap = (n) => Math.min(46, Math.round((30 + Math.floor(Math.max(0, n) / 55)) / 1.25));
+const sunGap = (n) => Math.min(30, Math.round((22 + Math.floor(Math.max(0, n) / 45)) / 1.25));
 // token height at world x, or null where none belongs. A token only
 // exists where a committed jump passes: trace the float ballistic
 // off every crest in the run-up at top rider speed, keep the highest
@@ -122,7 +122,7 @@ const tokenY = (n, h, ph) => {
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  return y > hill(n, ph) + 3.5 ? y : null;
+  return y > hill(n, ph) + 2.5 ? y : null;
 };
 
 function step(st, dt) {
