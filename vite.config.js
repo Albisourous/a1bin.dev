@@ -85,7 +85,7 @@ const blurbs = {
   "AGENTS.md": "house rules for agents visiting the site",
   "ACCESSIBILITY.md": "wcag 2.2 status + plain-html fallback",
   "projects/pokestrike.txt": "pokémon roguelike — plays in the side panel",
-  "snowboard/game.txt": "ascii tiny-wings game that runs in the editor",
+  "snowboard/game.txt": "ascii snowboard game that runs in the editor",
   "snowboard/leaderboard.txt": "shared top runs from the game",
   "fitness/FITNESS.md": "why he trains + the three practices",
   "fitness/WEIGHTLIFTING.md": "lift prs at ~155 lbs bodyweight",

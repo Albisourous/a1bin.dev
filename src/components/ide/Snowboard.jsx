@@ -11,7 +11,7 @@ import {
 import { trackEvent } from "../../lib/metrics.js";
 import { SITE } from "../../content/site.js";
 
-// ASCII-flavored tiny-wings on canvas. Hold SPACE — or press the snow —
+// ASCII-flavored snowboard on canvas. Hold SPACE — or press the snow —
 // to drop into the downhill and build speed; release to float off the
 // crest. Restart is the on-screen button only — a stray tap or a held
 // space can't eat a run. The scene is drawn as vectors so it reads as a

@@ -84,7 +84,7 @@ src/
 │  │  ├─ Explorer.jsx      ← file tree + graph row, opens tabs
 │  │  ├─ Editor.jsx        ← tab bar, line numbers + markdown-lite
 │  │  ├─ Graph.jsx         ← SVG node map, click node opens file
-│  │  ├─ Snowboard.jsx     ← ASCII tiny-wings, swaps in for .game file
+│  │  ├─ Snowboard.jsx     ← ASCII snowboard, swaps in for .game file
 │  │  ├─ Chat.jsx          ← msgs + input + canned replies
 │  │  └─ StatusBar.jsx     ← branch, file stats, theme toggle
 │  └─ ThemeToggle.jsx      ← status-bar theme switch

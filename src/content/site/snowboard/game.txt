@@ -1,4 +1,4 @@
-# snowboard.game — tiny wings, ascii edition
+# snowboard.game — ascii edition
 
 this file runs instead of rendering. open it in the editor.
 
