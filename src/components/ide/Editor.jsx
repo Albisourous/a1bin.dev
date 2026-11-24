@@ -190,7 +190,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
         <AB />
       ) : play ? (
         <div className="editor__play">
-          <iframe src={play.url} title={active} />
+          <iframe src={play.url} title={active} scrolling="no" />
         </div>
       ) : pdf ? (
         <div className="editor__pdf">

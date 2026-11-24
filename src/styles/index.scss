@@ -404,6 +404,13 @@ body.is-resizing-y {
     border: 0;
   }
 
+  // iOS: stop the outer page claiming gestures over the game frame, and
+  // clip the iframe — iOS tries to size it to its content otherwise.
+  &__play {
+    overflow: hidden;
+    touch-action: none;
+  }
+
   &__empty {
     flex: 1;
     display: flex;

@@ -12,6 +12,16 @@ import ResizeHandle from "./components/ide/ResizeHandle.jsx";
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const MOBILE_Q = "(max-width: 860px)";
+
+// iOS Safari drops touches inside iframes when the top document has no
+// touch handler on the iframe's ancestor chain (WebKit bug 128924) —
+// the app binds none, so the game tab is untappable on phones. One
+// listener on .ide (parent of both play iframes) marks the region.
+// React's delegated onTouchStart only registers at the root container,
+// so this binds a real element-level listener via ref.
+const bindIosIframeTouch = (el) => {
+  el?.addEventListener("touchstart", () => {});
+};
 const startsMobile = () => window.matchMedia(MOBILE_Q).matches;
 
 // Live media-query flag — drives the mobile stacked layout.
@@ -194,7 +204,7 @@ export default function App() {
   }, [active, split]);
 
   return (
-    <div className="ide">
+    <div className="ide" ref={bindIosIframeTouch}>
       <TitleBar />
       <div
         className={`workbench${split ? " workbench--split" : ""}${chatOpen ? "" : " workbench--no-chat"}${
@@ -295,7 +305,7 @@ export default function App() {
               </button>
             </div>
             <div className="editor__play">
-              <iframe src={SITE.play[split].url} title={split} />
+              <iframe src={SITE.play[split].url} title={split} scrolling="no" />
             </div>
           </div>
         )}
