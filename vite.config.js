@@ -66,7 +66,7 @@ const siteDocs = () =>
   walk("src/content/site")
     .filter((rel) => /\.(md|txt)$/.test(rel))
     .map((rel) => ({
-      rel, // personal/FITNESS.md — path shown in the explorer
+      rel, // fitness/FITNESS.md — path shown in the explorer
       url: `/${rel.replace(/\.txt$/, "")}`, // deep link (.txt dropped)
       text: readFileSync(join("src/content/site", rel), "utf8").replace(
         /\n$/,
@@ -87,10 +87,10 @@ const blurbs = {
   "projects/pokestrike.txt": "pokémon roguelike — plays in the side panel",
   "snowboard/game.txt": "ascii tiny-wings game that runs in the editor",
   "snowboard/leaderboard.txt": "shared top runs from the game",
-  "personal/FITNESS.md": "why he trains + the three practices",
-  "personal/WEIGHTLIFTING.md": "lift prs at ~155 lbs bodyweight",
-  "personal/CALISTHENICS.md": "seattle bodyweight club he co-organizes",
-  "personal/JIUJITSU.md": "bjj blue belt, judo green belt",
+  "fitness/FITNESS.md": "why he trains + the three practices",
+  "fitness/WEIGHTLIFTING.md": "lift prs at ~155 lbs bodyweight",
+  "fitness/CALISTHENICS.md": "seattle bodyweight club he co-organizes",
+  "fitness/JIUJITSU.md": "bjj blue belt, judo green belt",
 };
 
 const llmsTxt = () => {
@@ -107,7 +107,7 @@ const llmsTxt = () => {
           `- [${d.rel}](https://a1bin.dev${d.url}): ${blurbs[d.rel] ?? "site file"}`
       )
       .join("\n");
-  const order = ["site", "projects", "snowboard", "personal"];
+  const order = ["site", "projects", "snowboard", "fitness"];
   const titled = (dir) =>
     dir === "site" ? "Site" : dir[0].toUpperCase() + dir.slice(1);
   const body = order

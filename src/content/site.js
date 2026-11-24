@@ -137,7 +137,7 @@ export const SITE = {
   files: [root],
 
   // Folders that start collapsed in the explorer.
-  closedFolders: ["personal", "snowboard"],
+  closedFolders: ["fitness", "snowboard"],
 
   contents,
 
