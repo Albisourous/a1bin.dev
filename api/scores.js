@@ -32,7 +32,9 @@ const board = async (redis) => {
   const seen = new Set();
   return Object.values(all ?? {})
     .map((v) => (typeof v === "string" ? JSON.parse(v) : v))
-    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0))
+    // a named row outranks the anonymous "" ghost of the same run —
+    // adoption writes both, and the name must win the dedup below
+    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0) || (a.name ? 0 : 1) - (b.name ? 0 : 1))
     // cloned runs — the same (distance, timestamp) adopted under
     // several names by an old saveName leak — collapse to one
     .filter((r) => !seen.has(`${r.d}:${r.at}`) && seen.add(`${r.d}:${r.at}`));
@@ -63,6 +65,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "bad name" });
       }
       const key = name ?? "";
+      const atMs = typeof at === "number" && Number.isFinite(at) ? at : Date.now();
       const prev = await redis.hget(HASH, key);
       const old = typeof prev === "string" ? JSON.parse(prev) : prev;
       if (!old || d > old.d) {
@@ -70,9 +73,17 @@ export default async function handler(req, res) {
           d,
           why: String(why ?? "").slice(0, 40),
           name: name ?? null,
-          at: typeof at === "number" && Number.isFinite(at) ? at : Date.now(),
+          at: atMs,
         };
         await redis.hset(HASH, { [key]: JSON.stringify(row) });
+      }
+      // a named post adopting this run's anonymous row — the same run
+      // sits under "" with the same stamp; drop it so the board shows
+      // the name instead of a "rider" ghost
+      if (name != null) {
+        const anon = await redis.hget(HASH, "");
+        const a = typeof anon === "string" ? JSON.parse(anon) : anon;
+        if (a && a.at === atMs && a.d === d) await redis.hdel(HASH, "");
       }
       return res.status(200).json(await board(redis));
     }

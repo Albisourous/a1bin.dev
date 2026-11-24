@@ -37,14 +37,6 @@ export default function ActivityBar({
       >
         {ICONS.metrics}
       </button>
-      <button
-        className={`activitybar__btn${abActive ? " is-active" : ""}`}
-        onClick={onOpenAb}
-        aria-label={SITE.abTab}
-        title={SITE.abTab}
-      >
-        {ICONS.ab}
-      </button>
       <div className="activitybar__spacer" />
       {SITE.socials.map((s) => (
         <a

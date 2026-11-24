@@ -1,8 +1,8 @@
 # calisthenics
 
-bodyweight training club i co-organize in seattle
+i co-organize a calisthenics club in seattle
 
-thursdays 6–8pm — all levels, just show up
+every thursday 6–8pm
 
 learn: handstand · muscle-up · front lever · etc
 
