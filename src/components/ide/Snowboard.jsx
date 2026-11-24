@@ -108,11 +108,12 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 const sunGap = (n) => Math.min(30, Math.round((22 + Math.floor(Math.max(0, n) / 45)) / 1.25));
 // token height at world x, or null where none belongs. A token only
 // exists where a committed jump passes: trace the float ballistic
-// off every crest in the run-up at top rider speed, keep the highest
-// reach at x=n, and spawn it only when that reach clears the snow by
-// a real margin — optimal riders find tokens on their line, cruisers
-// find empty slopes. A rare few sit at boot-to-torso level as a
-// breadcrumb for runs still building speed.
+// off every crest in the run-up at top rider speed and spawn it only
+// when that reach clears the snow by a real margin — then hang it
+// inside a reachable hop band, not at the arc's ceiling. Optimal
+// riders find tokens on their line, cruisers find empty slopes. A
+// rare few sit at boot-to-torso level as a breadcrumb for runs
+// still building speed.
 const tokenY = (n, h, ph) => {
   if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
   let y = -Infinity;
@@ -122,7 +123,8 @@ const tokenY = (n, h, ph) => {
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  return y > hill(n, ph) + 2.5 ? y : null;
+  if (y <= hill(n, ph) + 2.5) return null;
+  return Math.min(y, hill(n, ph) + 3.5 + ((h >> 5) % 3));
 };
 
 function step(st, dt) {
