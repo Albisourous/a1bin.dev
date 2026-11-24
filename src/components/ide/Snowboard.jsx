@@ -741,6 +741,8 @@ export default function Snowboard() {
     <div
       ref={wrapRef}
       className="game"
+      onContextMenu={(e) => e.preventDefault()}
+      onSelectStart={(e) => e.preventDefault()}
       onPointerDown={(e) => {
         // a run's ending is inert — only the restart button rides again
         if (sim.current.over) return;
