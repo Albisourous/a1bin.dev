@@ -20,10 +20,10 @@ import { trackEvent } from "../../lib/metrics.js";
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
 // sun sets as you ride: 15 seconds of daylight, ringed-dot tokens
-// buy +1s each, and once night falls the next touchdown ends it —
-// the last flight gets to glide out. Tokens hang on jump arcs, so
-// daylight is earned by launching high at speed. Hills steepen with
-// distance.
+// buy +1s each — double-ringed ones buy +2s — and once night falls
+// the next touchdown ends it; the last flight gets to glide out.
+// Tokens hang on jump arcs, so daylight is earned by launching high
+// at speed. Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -201,15 +201,17 @@ function step(st, dt) {
     }
   }
   // time tokens — strung along jump arcs and the snow; the rider's
-  // body has to touch one. Each buys a second of daylight.
+  // body has to touch one. Each buys a second of daylight; the
+  // double-ringed ones buy two.
   const pn = Math.round(st.x);
   const ph = placeHash(pn, st.seed);
   if (ph % sunGap(pn) === 0 && !st.collected.has(pn)) {
     const py = tokenY(pn, ph, st.ph);
     if ((st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
+      const gain = (ph >> 9) % 5 === 0 ? 2 : 1;
       st.collected.add(pn);
-      st.dayLen += 1;
-      st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
+      st.dayLen += gain;
+      st.fx = { x: pn, y: py, t: 0, text: `+${gain}s`, kind: "time" };
     }
   }
   if (st.fx && (st.fx.t += dt) > 0.9) st.fx = null;
@@ -251,11 +253,17 @@ function drawSun(ctx, x, y, r) {
   }
 }
 
-// a time token — ringed dot, reads like a coin. Each is worth +1s.
-function drawToken(ctx, x, y) {
+// a time token — ringed dot, reads like a coin. Worth +1s; the rare
+// double-ringed ones are worth +2s.
+function drawToken(ctx, x, y, big) {
   ctx.beginPath();
-  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.arc(x, y, big ? 6 : 4, 0, Math.PI * 2);
   ctx.stroke();
+  if (big) {
+    ctx.beginPath();
+    ctx.arc(x, y, 3.6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.beginPath();
   ctx.arc(x, y, 1.6, 0, Math.PI * 2);
   ctx.fill();
@@ -468,8 +476,9 @@ function draw(ctx, st, C, W, H, best) {
     ctx.globalAlpha = 1;
   }
 
-  // time tokens — ringed dots bobbing on the snow, +1s each. Drawn over
-  // the night dim so they read as beacons in the dark.
+  // time tokens — ringed dots bobbing on the snow, +1s each, +2s for
+  // the double-ringed. Drawn over the night dim so they read as
+  // beacons in the dark.
   ctx.strokeStyle = C.accent2;
   ctx.fillStyle = C.accent2;
   ctx.lineWidth = 1.4;
@@ -477,7 +486,7 @@ function draw(ctx, st, C, W, H, best) {
     const h = placeHash(n, st.seed);
     if (h % sunGap(n) !== 0 || st.collected.has(n)) continue;
     const gy = ty(tokenY(n, h, st.ph)) + Math.sin(st.t * 3 + n) * 1.5;
-    drawToken(ctx, (n - camX) * sx, gy);
+    drawToken(ctx, (n - camX) * sx, gy, (h >> 9) % 5 === 0);
   }
 
   // HUD — monospace text, same voice as the rest of the IDE

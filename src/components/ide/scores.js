@@ -13,6 +13,10 @@
 const SCORES_KEY = "snowboard.scores";
 const NAME_KEY = "snowboard.name";
 const BEST_KEY = "snowboard.best";
+// at-stamps of runs this browser actually posted — saveName adopts
+// only these, never anonymous "rider" rows pulled in by a board
+// refresh (that leak is what cloned one 2178 run onto five names)
+const MINE_KEY = "snowboard.mine";
 const API = "/api/scores";
 
 export const loadScores = () => {
@@ -110,26 +114,34 @@ const perRider = (scores) => {
   );
 };
 
-// name the run — the rider key plus a name stamped onto board rows
-// that don't have one yet. Then re-post the rider's best row under
-// the name so the server can merge it into the global board.
+// name the run — the rider key plus a name stamped onto this
+// browser's own un-named board rows. Then re-post the rider's best
+// row under the name so the server can merge it into the board.
 export const saveName = (n) => {
   if (!n) return;
   try {
     localStorage.setItem(NAME_KEY, n);
-    const scores = loadScores().map((r) => (r.name ? r : { ...r, name: n }));
+    const own = new Set(JSON.parse(localStorage.getItem(MINE_KEY)) || []);
+    const scores = loadScores().map((r) =>
+      r.name || !own.has(r.at) ? r : { ...r, name: n }
+    );
     // a stamped row can collide with a real one — collapse to one
     cacheBoard(perRider(scores));
   } catch {}
   emit();
   const mine = loadScores().find((r) => r.name === n);
-  if (mine) send(mine);
+  if (mine) send({ d: mine.d, why: mine.why, name: mine.name, at: mine.at });
 };
 
 // a finished run — the rider's row updates only when this run beats
 // their best. Local write first (offline cache), remote second.
 export const postScore = (row) => {
   cacheBoard(perRider([...loadScores(), row]));
+  try {
+    const mine = JSON.parse(localStorage.getItem(MINE_KEY)) || [];
+    mine.push(row.at);
+    localStorage.setItem(MINE_KEY, JSON.stringify(mine.slice(-50)));
+  } catch {}
   emit();
   send(row);
 };

@@ -29,9 +29,13 @@ const cleanName = (v) => {
 
 const board = async (redis) => {
   const all = await redis.hgetall(HASH);
+  const seen = new Set();
   return Object.values(all ?? {})
     .map((v) => (typeof v === "string" ? JSON.parse(v) : v))
-    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0));
+    .sort((a, b) => b.d - a.d || (a.at ?? 0) - (b.at ?? 0))
+    // cloned runs — the same (distance, timestamp) adopted under
+    // several names by an old saveName leak — collapse to one
+    .filter((r) => !seen.has(`${r.d}:${r.at}`) && seen.add(`${r.d}:${r.at}`));
 };
 
 export default async function handler(req, res) {
