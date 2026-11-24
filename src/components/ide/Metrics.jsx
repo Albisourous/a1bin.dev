@@ -2,15 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchMetrics } from "../../lib/metrics.js";
 import { METRICS } from "../../content/metrics.js";
 
-const STAT_KEYS = [
-  "visits",
-  "visitors",
-  "chats",
-  "runs",
-  "players",
-  "term",
-  "resume",
-];
+const SITE_KEYS = ["visits", "visitors", "chats", "term", "resume"];
+const SNOW_KEYS = ["runs", "players"];
 
 // Live traffic dashboard — a wall of all-time totals.
 // Rendered in place of the METRICS pseudo-tab.
@@ -35,7 +28,7 @@ export default function Metrics() {
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1]);
   const deathTotal = deaths.reduce((s, [, v]) => s + v, 0);
-  const dead = data && STAT_KEYS.every((k) => !totals[k]);
+  const dead = data && [...SITE_KEYS, ...SNOW_KEYS].every((k) => !totals[k]);
 
   if (!data || dead) {
     return (
@@ -47,6 +40,13 @@ export default function Metrics() {
     );
   }
 
+  const stat = (k, label, n) => (
+    <div className="metrics__stat" key={k}>
+      <div className="metrics__num">{n.toLocaleString("en-US")}</div>
+      <div className="metrics__label">{label}</div>
+    </div>
+  );
+
   return (
     <div className="metrics">
       <div className="metrics__title">
@@ -54,24 +54,15 @@ export default function Metrics() {
         <span className="metrics__window">{METRICS.window}</span>
       </div>
       <div className="metrics__stats">
-        {STAT_KEYS.map((k) => (
-          <div className="metrics__stat" key={k}>
-            <div className="metrics__num">
-              {(totals[k] ?? 0).toLocaleString("en-US")}
-            </div>
-            <div className="metrics__label">{METRICS.stats[k]}</div>
-          </div>
-        ))}
+        {SITE_KEYS.map((k) => stat(k, METRICS.stats[k], totals[k] ?? 0))}
       </div>
-      {deaths.length > 0 && (
-        <div className="metrics__deaths">
-          {METRICS.deathsTitle}
-          {" — "}
-          {deaths
-            .map(([k, v]) => `${k} ${v} · ${Math.round((v / deathTotal) * 100)}%`)
-            .join("  ·  ")}
-        </div>
-      )}
+      <div className="metrics__title">{METRICS.snowboard.title}</div>
+      <div className="metrics__stats">
+        {SNOW_KEYS.map((k) => stat(k, METRICS.snowboard.stats[k], totals[k] ?? 0))}
+        {deaths.map(([k, v]) =>
+          stat(k, `${k} · ${Math.round((v / deathTotal) * 100)}%`, v),
+        )}
+      </div>
     </div>
   );
 }

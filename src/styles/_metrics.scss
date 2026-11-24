@@ -41,13 +41,6 @@
     color: var(--ink-dim);
   }
 
-  // run-ending mix — one dim line under the stat wall
-  &__deaths {
-    margin: calc(-1 * #{s.$space-3}) 0 s.$space-5;
-    color: var(--ink-dim);
-    font-size: 0.85em;
-  }
-
   &__dim {
     color: var(--ink-dim);
   }

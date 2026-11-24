@@ -10,10 +10,14 @@ export const METRICS = {
     visits: "page loads",
     visitors: "unique visitors",
     chats: "chat messages",
-    runs: "games played",
-    players: "leaderboard riders",
     term: "terminal commands",
     resume: "resume opens",
   },
-  deathsTitle: "run endings",
+  snowboard: {
+    title: "snowboard",
+    stats: {
+      runs: "games played",
+      players: "leaderboard riders",
+    },
+  },
 };
