@@ -20,12 +20,13 @@ import { trackEvent } from "../../lib/metrics.js";
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
 // sun sets as you ride: 15 seconds of daylight banked and never
-// more — the buffer is the mistake budget, and an honest one: a
-// second on the clock is a real second. Ringed-dot tokens buy +1s
-// and are the only daylight there is; they hang on jump arcs, so
-// daylight is earned by launching high at speed. Miss fifteen of
-// them and the next touchdown ends it — the last flight glides out.
-// Hills steepen with distance.
+// more — the buffer is the mistake budget. Ringed-dot tokens buy
+// +1s; clean downslope slides pay a small bonus plus a slice of
+// the flight it took to land. Perfect play refills toward 15s but
+// can't hoard, rough landings and missed tokens bleed it, and at
+// zero the next touchdown ends it — the last flight glides out.
+// Tokens hang on jump arcs: daylight is earned by launching high
+// at speed. Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -79,6 +80,7 @@ const fresh = () => {
     ground: true,
     held: false,
     combo: 0, // consecutive perfect slides
+    air: 0, // st.t at launch — hangtime refunds land on a clean slide
     fx: null, // floating feedback label {x, y, t, text, kind}
     intro: INTRO, // riding the lift in — the clock hasn't started
     t: 0, // seconds ridden — night falls at dayLen
@@ -105,15 +107,14 @@ const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
 // sun tokens thin out with distance until a plateau — from ~1km on
 // the spacing holds, so a run that keeps speed and keeps grabbing
 // tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
-const sunGap = (n) => Math.min(30, Math.round((22 + Math.floor(Math.max(0, n) / 45)) / 1.25));
+const sunGap = (n) => Math.min(46, Math.round((30 + Math.floor(Math.max(0, n) / 55)) / 1.25));
 // token height at world x, or null where none belongs. A token only
 // exists where a committed jump passes: trace the float ballistic
-// off every crest in the run-up at top rider speed and spawn it only
-// when that reach clears the snow by a real margin — then hang it
-// inside a reachable hop band, not at the arc's ceiling. Optimal
-// riders find tokens on their line, cruisers find empty slopes. A
-// rare few sit at boot-to-torso level as a breadcrumb for runs
-// still building speed.
+// off every crest in the run-up at top rider speed, keep the highest
+// reach at x=n, and spawn it only when that reach clears the snow by
+// a real margin — optimal riders find tokens on their line, cruisers
+// find empty slopes. A rare few sit at boot-to-torso level as a
+// breadcrumb for runs still building speed.
 const tokenY = (n, h, ph) => {
   if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
   let y = -Infinity;
@@ -123,8 +124,7 @@ const tokenY = (n, h, ph) => {
     const t = (n - x0) / v;
     y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  if (y <= hill(n, ph) + 2.5) return null;
-  return Math.min(y, hill(n, ph) + 3.5 + ((h >> 5) % 3));
+  return y > hill(n, ph) + 3.5 ? y : null;
 };
 
 function step(st, dt) {
@@ -142,6 +142,7 @@ function step(st, dt) {
     // i.e. the hill curved away under the board
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
       st.ground = false;
+      st.air = st.t; // hangtime clock starts at launch
       // lip kick — a sharp crest throws extra height, like a real kicker
       st.vy = Math.min(st.vy * 1.25, 28);
       st.vy -= g * dt;
@@ -178,6 +179,14 @@ function step(st, dt) {
         st.vy = s2 * st.vx;
         st.combo += 1;
         st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
+        // daylight income — only a clean downslope landing pays: a
+        // small slide bonus (doubled in fever) plus a slice of the
+        // flight it took to arrive. The bank caps at the starting
+        // 15s — income is only worth what mistakes already spent.
+        st.dayLen = Math.min(
+          st.dayLen + (st.combo >= 3 ? 0.5 : 0.25) + (st.t - st.air) * 0.1,
+          st.t + RUN_LEN
+        );
         st.fx = {
           x: st.x,
           y: st.y,
