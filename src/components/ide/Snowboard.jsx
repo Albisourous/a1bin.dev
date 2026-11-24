@@ -19,11 +19,15 @@ import { trackEvent } from "../../lib/metrics.js";
 // transition for a "perfect slide" — flat landings bounce, upslope
 // landings kill your speed, and a bad-angle landing wipes you out.
 // Endless — a run ends on a slam, a stall, or a night landing. The
-// sun sets as you ride: 15 seconds of daylight, ringed-dot tokens
-// buy +1s each — double-ringed ones buy +2s — and once night falls
-// the next touchdown ends it; the last flight gets to glide out.
-// Tokens hang on jump arcs, so daylight is earned by launching high
-// at speed. Hills steepen with distance.
+// sun sets as you ride: 15 seconds of daylight banked, burning 1s/s.
+// Daylight is earned, never found — ringed-dot tokens buy +1s (the
+// double-ringed +2s) and every clean downslope landing pays a slide
+// bonus (+0.5s, +1s in fever) plus half the flight it took to get
+// there. Perfect chains hold the bank near 15s; rough landings and
+// low hops earn nothing and the bank bleeds out. Once night falls
+// the next touchdown ends it — the last flight glides out. Tokens
+// hang on jump arcs: daylight is earned by launching high at speed.
+// Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -77,6 +81,7 @@ const fresh = () => {
     ground: true,
     held: false,
     combo: 0, // consecutive perfect slides
+    air: 0, // st.t at launch — hangtime refunds land on a clean slide
     fx: null, // floating feedback label {x, y, t, text, kind}
     intro: INTRO, // riding the lift in — the clock hasn't started
     t: 0, // seconds ridden — night falls at dayLen
@@ -136,6 +141,7 @@ function step(st, dt) {
     // i.e. the hill curved away under the board
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
       st.ground = false;
+      st.air = st.t; // hangtime clock starts at launch
       // lip kick — a sharp crest throws extra height, like a real kicker
       st.vy = Math.min(st.vy * 1.25, 28);
       st.vy -= g * dt;
@@ -172,11 +178,17 @@ function step(st, dt) {
         st.vy = s2 * st.vx;
         st.combo += 1;
         st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
+        // daylight income — only a clean downslope landing pays: a
+        // slide bonus that doubles in fever plus half the flight it
+        // took to arrive. Perfect chains net ~1s/s and hold the bank;
+        // rough landings pay nothing, so mistakes slowly lose time.
+        const gain = (st.combo >= 3 ? 1 : 0.5) + (st.t - st.air) * 0.5;
+        st.dayLen += gain;
         st.fx = {
           x: st.x,
           y: st.y,
           t: 0,
-          text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
+          text: `${st.combo > 1 ? `perfect x${st.combo}` : "perfect!"} +${gain.toFixed(1)}s`,
           kind: "good",
         };
       } else if (s2 > 0.28) {
