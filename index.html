@@ -27,6 +27,18 @@
     />
     <title>Albin Shrestha — a1bin.dev</title>
     <link rel="canonical" href="https://a1bin.dev/" />
+    <link
+      rel="alternate"
+      type="text/plain"
+      href="/llms.txt"
+      title="LLMs.txt"
+    />
+    <link
+      rel="alternate"
+      type="text/plain"
+      href="/llms-full.txt"
+      title="LLMs full text"
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://a1bin.dev/" />
     <meta property="og:site_name" content="a1bin.dev" />
@@ -42,16 +54,70 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "Albin Shrestha",
-        "url": "https://a1bin.dev/",
-        "image": "https://a1bin.dev/og.png",
-        "jobTitle": "Software Engineer",
-        "address": { "@type": "PostalAddress", "addressLocality": "Seattle", "addressRegion": "WA" },
-        "sameAs": [
-          "https://github.com/Albisourous",
-          "https://www.linkedin.com/in/albin-shrestha",
-          "https://x.com/albinshr"
+        "@graph": [
+          {
+            "@type": "ProfilePage",
+            "@id": "https://a1bin.dev/#profile",
+            "url": "https://a1bin.dev/",
+            "name": "Albin Shrestha — a1bin.dev",
+            "isPartOf": {
+              "@type": "WebSite",
+              "@id": "https://a1bin.dev/#site",
+              "url": "https://a1bin.dev/",
+              "name": "a1bin.dev"
+            },
+            "mainEntity": { "@id": "https://a1bin.dev/#albin" },
+            "hasPart": [
+              {
+                "@type": "VideoGame",
+                "name": "Pokéstrike",
+                "url": "https://albisourous.github.io/pokestrike/",
+                "sameAs": "https://github.com/Albisourous/pokestrike"
+              },
+              {
+                "@type": "VideoGame",
+                "name": "snowboard.game",
+                "url": "https://a1bin.dev/snowboard/game"
+              },
+              {
+                "@type": "SoftwareApplication",
+                "name": "a1bin.dev chat agent",
+                "url": "https://a1bin.dev/",
+                "applicationCategory": "LLM agent"
+              }
+            ]
+          },
+          {
+            "@type": "Person",
+            "@id": "https://a1bin.dev/#albin",
+            "name": "Albin Shrestha",
+            "url": "https://a1bin.dev/",
+            "image": "https://a1bin.dev/og.png",
+            "email": "mailto:albinshrestha01@gmail.com",
+            "jobTitle": "Software Development Engineer",
+            "worksFor": {
+              "@type": "Organization",
+              "name": "Amazon",
+              "department": "Customer Service"
+            },
+            "alumniOf": {
+              "@type": "CollegeOrUniversity",
+              "name": "The University of Texas at Austin"
+            },
+            "address": { "@type": "PostalAddress", "addressLocality": "Seattle", "addressRegion": "WA" },
+            "knowsAbout": [
+              "Kotlin", "TypeScript", "React", "Python", "Java", "Swift",
+              "AWS", "PyTorch", "LLM agents", "agent tooling",
+              "customer service products", "weightlifting",
+              "calisthenics", "Brazilian jiu-jitsu", "judo", "snowboarding"
+            ],
+            "sameAs": [
+              "https://github.com/Albisourous",
+              "https://www.linkedin.com/in/albin-shrestha",
+              "https://x.com/albinshr",
+              "https://www.instagram.com/adventureralbi/"
+            ]
+          }
         ]
       }
     </script>
@@ -66,21 +132,44 @@
           document.documentElement.dataset.theme = t;
       } catch (e) {}
     </script>
+    <script>
+      // Canonical follows the deep link — the SPA serves this same
+      // index.html on every route, so set it before React boots.
+      // React keeps it in sync as the active tab changes (App.jsx).
+      try {
+        var p = location.pathname.replace(/\/+$/, "");
+        if (p)
+          document
+            .querySelector('link[rel="canonical"]')
+            .setAttribute("href", "https://a1bin.dev" + p);
+      } catch (e) {}
+    </script>
+    <style>
+      /* Crawler mirror (see @prerender in vite.config.js) — the DOM
+         text of every site file. display:none so nothing can flash
+         before React clears #root on mount. */
+      .crawl {
+        display: none;
+      }
+    </style>
   </head>
   <body>
     <div id="root">
-      <!-- Pre-render fallback: crawlers see this before React mounts,
-           and React replaces it on first render. Keep it in sync with
-           the meta description above. -->
-      <h1>Albin Shrestha</h1>
-      <p>
-        Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE.
-      </p>
-      <nav>
-        <a href="https://github.com/Albisourous">GitHub</a>
-        <a href="https://www.linkedin.com/in/albin-shrestha">LinkedIn</a>
-        <a href="https://x.com/albinshr">X</a>
-      </nav>
+      <!-- Crawler mirror — display:none so it never paints; React
+           replaces #root on mount anyway. h1/p/nav keep the meta
+           description in the DOM; @prerender adds every site file. -->
+      <div class="crawl">
+        <h1>Albin Shrestha</h1>
+        <p>
+          Albin Shrestha — software engineer in Seattle. Amazon Customer Service, LLM widgets, agent tooling. Personal site rendered as an IDE.
+        </p>
+        <nav>
+          <a href="https://github.com/Albisourous">GitHub</a>
+          <a href="https://www.linkedin.com/in/albin-shrestha">LinkedIn</a>
+          <a href="https://x.com/albinshr">X</a>
+        </nav>
+        <!-- @prerender -->
+      </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

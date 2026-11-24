@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SITE } from "./content/site.js";
 import { trackEvent } from "./lib/metrics.js";
 import TitleBar from "./components/ide/TitleBar.jsx";
@@ -52,6 +52,14 @@ const resolve = (pathname) => {
   );
 };
 const boot = resolve(location.pathname);
+// A play file deep link (/projects/pokestrike) boots into the split
+// editor group — but only where a split makes sense (desktop).
+const bootPlay =
+  boot &&
+  SITE.play[boot] &&
+  (SITE.play[boot].open ?? (startsMobile() ? "tab" : "split")) === "split"
+    ? boot
+    : null;
 
 // Tabs that render a component instead of file text — graph, metrics,
 // a/b. None of them count as "the explorer is open".
@@ -61,11 +69,13 @@ export default function App() {
   // Tab state: `tabs` is the tab bar order, `active` the focused tab.
   // The graph tab is a pseudo-file named SITE.graphTab.
   const [tabs, setTabs] = useState(
-    boot && !SITE.openTabs.includes(boot)
+    boot && !bootPlay && !SITE.openTabs.includes(boot)
       ? [...SITE.openTabs, boot]
       : SITE.openTabs
   );
-  const [active, setActive] = useState(boot ?? SITE.activeTab);
+  const [active, setActive] = useState(
+    boot && !bootPlay ? boot : SITE.activeTab
+  );
   // In-session drafts: edits survive file switches but reset on reload.
   const [drafts, setDrafts] = useState({});
   // Side panel widths; the editor takes whatever space is left.
@@ -75,6 +85,21 @@ export default function App() {
   const [chatH, setChatH] = useState(240);
   // Bottom terminal height — open by default like a real IDE.
   const [termH, setTermH] = useState(180);
+  // Split editor group — play files open to the side of the main
+  // editor, VS Code-style, so the current file stays put.
+  const [split, setSplit] = useState(bootPlay);
+  const [splitW, setSplitW] = useState(480);
+  // Auto-fit bookkeeping: `sized` = a no-aspect entry got its one-time
+  // max sizing; `manual` = the user dragged, so aspect-fit stands down.
+  const splitSized = useRef(false);
+  const splitManual = useRef(false);
+  // The most the split column can take: viewport minus rail, explorer,
+  // chat and a minimum main-editor column.
+  const splitBound = () =>
+    Math.max(
+      240,
+      window.innerWidth - 44 - explorerW - (chatOpen ? chatW : 0) - 240
+    );
   // Chat starts closed on mobile: editor gets the screen. Terminal
   // stays open everywhere — the prompt is part of the landing view.
   const [chatOpen, setChatOpen] = useState(() => !startsMobile());
@@ -85,6 +110,14 @@ export default function App() {
   const text = drafts[active] ?? (SITE.contents[active] || []).join("\n");
 
   const open = (name) => {
+    // Play files pick an open mode: the entry's `open` wins, else
+    // desktop splits to the side and mobile opens a normal tab.
+    if (SITE.play[name]) {
+      splitManual.current = false; // fresh open refits to the app
+      if ((SITE.play[name].open ?? (mobile ? "tab" : "split")) === "split") {
+        return setSplit(name);
+      }
+    }
     setTabs((ts) => (ts.includes(name) ? ts : [...ts, name]));
     setActive(name);
   };
@@ -104,32 +137,73 @@ export default function App() {
     });
   };
 
+  // Aspect-fit: an entry with a fixed logical ratio gets a column
+  // exactly pane-height × aspect wide — the app fills it edge to edge.
+  // Watched so terminal/window changes refit; a manual drag takes over.
+  useLayoutEffect(() => {
+    if (!split) return;
+    const entry = SITE.play[split];
+    const el = document.querySelector(".editor--split .editor__play");
+    if (entry?.aspect && el) {
+      const ro = new ResizeObserver(() => {
+        if (!splitManual.current) {
+          // +1 — the column's border-left sits inside the track.
+          setSplitW(
+            clamp(el.clientHeight * entry.aspect + 1, 240, splitBound())
+          );
+        }
+      });
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    if (!splitSized.current) {
+      splitSized.current = true;
+      setSplitW(splitBound());
+    }
+    // Panel resizes re-run this so the bound and the refit stay fresh.
+  }, [split, explorerW, chatW, chatOpen]);
+
   // A pdf tab gaining focus = one "resume press" — explorer click,
   // file-link open, or a /Resume.pdf deep link all land here.
   useEffect(() => {
     if (SITE.pdfs[active]) trackEvent("resume");
   }, [active]);
 
+  // Explorer rows and editor tabs are real anchors now — dropping one
+  // on an unhandled target would navigate. Nothing on the page consumes
+  // external drops, so swallow every drop that escapes a handled zone.
+  useEffect(() => {
+    const swallow = (e) => e.preventDefault();
+    document.addEventListener("dragover", swallow);
+    document.addEventListener("drop", swallow);
+    return () => {
+      document.removeEventListener("dragover", swallow);
+      document.removeEventListener("drop", swallow);
+    };
+  }, []);
+
   // Canonical follows the active file for SEO. The URL itself never
   // changes on navigation — deep links are inbound only.
   useEffect(() => {
-    const wanted = active ? `/${SITE.urls[active] ?? active}` : "/";
+    const shown = split ?? active;
+    const wanted = shown ? `/${SITE.urls[shown] ?? shown}` : "/";
     document.title = "Albin Shrestha — a1bin.dev";
     document
       .querySelector('link[rel="canonical"]')
       ?.setAttribute("href", `https://a1bin.dev${wanted}`);
-  }, [active]);
+  }, [active, split]);
 
   return (
     <div className="ide">
       <TitleBar />
       <div
-        className={`workbench${chatOpen ? "" : " workbench--no-chat"}${
+        className={`workbench${split ? " workbench--split" : ""}${chatOpen ? "" : " workbench--no-chat"}${
           termOpen ? "" : " workbench--no-term"
         }`}
         style={{
           "--explorer-w": `${explorerW}px`,
           "--chat-w": `${chatW}px`,
+          "--split-w": `${splitW}px`,
           "--chat-h": `${chatH}px`,
           "--term-h": `${termH}px`,
         }}
@@ -156,7 +230,7 @@ export default function App() {
         />
         <Explorer
           drawer={explorerOpen}
-          open={active}
+          open={split ?? active}
           onOpen={(name) => {
             open(name);
             setExplorerOpen(false);
@@ -193,6 +267,38 @@ export default function App() {
               : setChatW((w) => clamp(w - d, 200, 600))
           }
         />
+        {split && (
+          <ResizeHandle
+            name="split"
+            label="resize split editor"
+            onDrag={(d) => {
+              splitManual.current = true;
+              setSplitW((w) => clamp(w - d, 240, splitBound()));
+            }}
+          />
+        )}
+        {split && (
+          <div className="editor editor--split">
+            <div className="editor__tabbar">
+              <button className="editor__tab is-open">
+                {split}
+                <span
+                  className="editor__x"
+                  aria-label={`close ${split}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSplit(null);
+                  }}
+                >
+                  ×
+                </span>
+              </button>
+            </div>
+            <div className="editor__play">
+              <iframe src={SITE.play[split].url} title={split} />
+            </div>
+          </div>
+        )}
         <Chat onClose={() => setChatOpen(false)} />
         <ResizeHandle
           name="term"

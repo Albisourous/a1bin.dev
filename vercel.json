@@ -3,6 +3,20 @@
     { "source": "/game", "destination": "/snowboard/game", "permanent": true }
   ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [
+    {
+      "source": "/llms.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/llms-full.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    }
+  ],
   "functions": {
     "api/chat.js": { "includeFiles": "{src/content/site/**,api/resume.txt}" }
   }

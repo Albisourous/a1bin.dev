@@ -1,4 +1,27 @@
 User-agent: *
 Allow: /
 
+# AI crawlers — explicitly welcome
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://a1bin.dev/sitemap.xml
+
+# LLM-readable mirrors of every file on the site:
+# https://a1bin.dev/llms.txt
+# https://a1bin.dev/llms-full.txt

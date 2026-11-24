@@ -1,0 +1,2 @@
+play pokéstrike — the deployed game opens to the side, in a split editor.
+readme + source: https://github.com/Albisourous/pokestrike

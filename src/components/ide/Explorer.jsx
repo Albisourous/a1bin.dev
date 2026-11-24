@@ -60,7 +60,7 @@ function Tree({ nodes, ctx, depth }) {
         )}
       </div>
     ) : (
-      <button
+      <a
         key={n.name}
         className={`explorer__row explorer__row--file${
           n.name === open ? " is-open" : ""
@@ -68,11 +68,15 @@ function Tree({ nodes, ctx, depth }) {
           n.name === dnd.over && n.name !== dnd.drag ? " is-drop" : ""
         }`}
         style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => ctx.onOpen(n.name)}
+        href={`/${encodeURI(SITE.urls[n.name] ?? n.name)}`}
+        onClick={(e) => {
+          e.preventDefault();
+          ctx.onOpen(n.name);
+        }}
         {...dnd.row(n)}
       >
         {n.name}
-      </button>
+      </a>
     )
   );
 }
@@ -80,8 +84,8 @@ function Tree({ nodes, ctx, depth }) {
 export default function Explorer({ open, onOpen, drawer }) {
   // Local mutable copy of SITE.files — reorder drags rewrite it.
   const [tree, setTree] = useState(SITE.files);
-  // Folders start expanded; names land here when collapsed.
-  const [closed, setClosed] = useState(() => new Set());
+  // Folders start expanded except SITE.closedFolders; collapsed names land here.
+  const [closed, setClosed] = useState(() => new Set(SITE.closedFolders));
   // Drag state — `over` is the hovered drop target.
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
@@ -157,7 +161,8 @@ export default function Explorer({ open, onOpen, drawer }) {
       className={`explorer${drawer ? " explorer--open" : ""}`}
       aria-label="file explorer"
       onDragOver={(e) => e.preventDefault()}
-      onDrop={() => {
+      onDrop={(e) => {
+        e.preventDefault();
         if (drag) moveToRoot(drag);
         endDrag();
       }}

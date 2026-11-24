@@ -2,7 +2,7 @@
 @use "mixins/type" as ty;
 
 // Metrics — traffic dashboard pseudo-tab (Metrics.jsx). A monospace
-// stat wall plus unicode-block sparklines; the editor pane is the page.
+// stat wall of all-time totals; the editor pane is the page.
 
 .metrics {
   flex: 1;
@@ -23,8 +23,8 @@
   }
 
   &__stats {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: s.$space-4 s.$space-6;
     margin-bottom: s.$space-5;
   }
@@ -48,99 +48,7 @@
     font-size: 0.85em;
   }
 
-
-
-  // Contribution matrix — one row per metric, one cell per day for the
-  // last two weeks. Zero days ghost out at border strength; anything
-  // nonzero paints accent, brighter with volume. Today's cell gets the
-  // ring. Fixed cell size keeps it a compact dot-grid, never a band.
-  &__rows {
-    --cell: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: s.$space-3;
-  }
-
-  &__series {
-    display: flex;
-    align-items: center;
-    gap: 1.5em;
-  }
-
-  &__name {
-    width: 7em;
-    flex: none;
-    color: var(--ink-dim);
-  }
-
-  &__grid {
-    flex: none;
-    display: grid;
-    grid-template-columns: repeat(14, var(--cell));
-    gap: 4px;
-  }
-
-  &__cell {
-    aspect-ratio: 1;
-    border-radius: 2px;
-    background: var(--border);
-    opacity: 0.15;
-
-    @media (prefers-reduced-motion: no-preference) {
-      transition: opacity 120ms ease;
-    }
-
-    &.is-today {
-      outline: 1px solid var(--accent);
-      outline-offset: 1px;
-    }
-
-    &:hover {
-      opacity: 1;
-      outline: 1px solid var(--accent);
-      outline-offset: 1px;
-    }
-  }
-
-  &__count {
-    width: 3em;
-    color: var(--noise);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  // Date axis under the grid — same flex structure as a series row so
-  // the track lines up with the cells.
-  &__axis {
-    display: flex;
-    align-items: baseline;
-    gap: 1.5em;
-    margin-top: s.$space-2;
-  }
-
-  &__axis-track {
-    flex: none;
-    width: calc(14 * var(--cell) + 13 * 4px);
-    display: flex;
-    justify-content: space-between;
-    color: var(--noise);
-    font-size: 0.8em;
-  }
-
   &__dim {
     color: var(--ink-dim);
-  }
-}
-
-// Phones — smaller cells keep the grid on one line beside the label.
-@media (max-width: 560px) {
-  .metrics {
-    &__rows {
-      --cell: 8px;
-    }
-
-    &__name {
-      width: 5.5em;
-    }
   }
 }

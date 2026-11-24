@@ -102,6 +102,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
   const isMetrics = active === SITE.metricsTab;
   const isAb = active === SITE.abTab;
   const pdf = SITE.pdfs[active];
+  const play = SITE.play[active]; // mobile opens play files as tabs
   const lines = text.split("\n");
   // Tab drag state: `dragTab` is being dragged, `overTab` is the drop
   // target — dropping inserts the dragged tab before it.
@@ -116,20 +117,25 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
       <div
         className="editor__tabbar"
         onDragOver={(e) => e.preventDefault()}
-        onDrop={() => {
+        onDrop={(e) => {
+          e.preventDefault();
           if (dragTab) onMove(dragTab, null);
           endDrag();
         }}
       >
         {tabs.map((t) => (
-          <button
+          <a
             key={t}
             className={`editor__tab${t === SITE.graphTab ? " editor__tab--static" : ""}${
               t === active ? " is-open" : ""
             }${
               t === dragTab ? " is-drag" : ""
             }${t === overTab && t !== dragTab ? " is-drop" : ""}`}
-            onClick={() => onSelect(t)}
+            href={`/${encodeURI(SITE.urls[t] ?? t)}`}
+            onClick={(e) => {
+              e.preventDefault();
+              onSelect(t);
+            }}
             draggable
             onDragStart={(e) => {
               setDragTab(t);
@@ -155,6 +161,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
                 className="editor__x"
                 aria-label={`close ${t}`}
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   onClose(t);
                 }}
@@ -162,7 +169,7 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
                 ×
               </span>
             )}
-          </button>
+          </a>
         ))}
       </div>
       {isGraph ? (
@@ -181,6 +188,10 @@ export default function Editor({ tabs, active, onSelect, onClose, onMove, text, 
         <Metrics />
       ) : isAb ? (
         <AB />
+      ) : play ? (
+        <div className="editor__play">
+          <iframe src={play.url} title={active} />
+        </div>
       ) : pdf ? (
         <div className="editor__pdf">
           <iframe src={pdf} title={active} />

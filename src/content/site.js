@@ -30,7 +30,7 @@ for (const [path, text] of Object.entries(raw)) {
   contents[path.split("/").pop()] = text.replace(/\n$/, "").split("\n");
 }
 
-// Explorer tree built from the real folder layout, folders first.
+// Explorer tree built from the real folder layout, folders last.
 const root = { type: "folder", name: "a1bin.dev", children: [] };
 for (const path of [...Object.keys(raw), ...Object.keys(pdfRaw)].sort()) {
   const parts = path.replace("./site/", "").split("/");
@@ -47,7 +47,7 @@ for (const path of [...Object.keys(raw), ...Object.keys(pdfRaw)].sort()) {
 }
 const sortTree = (node) => {
   node.children?.sort((a, b) =>
-    a.type === b.type ? a.name.localeCompare(b.name) : a.type === "folder" ? -1 : 1
+    a.type === b.type ? a.name.localeCompare(b.name) : a.type === "file" ? -1 : 1
   );
   node.children?.forEach(sortTree);
 };
@@ -106,6 +106,19 @@ export const SITE = {
   // trick as the game.
   boardFile: "leaderboard.txt",
 
+  // projects/pokestrike.txt is a real file in ./site/ but opens to the
+  // side — a split editor group iframing the deployed game on GitHub
+  // Pages. `aspect` (w/h) is the app's fixed logical ratio: the split
+  // column sizes itself to it so nothing letterboxes inside.
+  // `open` pins how it launches — "split" or "tab"; unset means auto:
+  // split on desktop, a normal editor tab on mobile.
+  play: {
+    "pokestrike.txt": {
+      url: "https://albisourous.github.io/pokestrike/",
+      aspect: 540 / 960,
+    },
+  },
+
   // Status-bar "a11y" link → the standalone statement page. A real
   // html file in public/ so it works without the SPA — Vercel serves
   // it before the rewrite. ACCESSIBILITY.md in ./site/ mirrors the
@@ -122,6 +135,9 @@ export const SITE = {
   // Explorer tree — mirrors ./site/. Folders render expanded; files are
   // openable tabs.
   files: [root],
+
+  // Folders that start collapsed in the explorer.
+  closedFolders: ["personal", "snowboard"],
 
   contents,
 

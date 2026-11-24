@@ -109,14 +109,27 @@ body {
 
 .workbench {
   display: grid;
-  grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 var(--chat-w, 330px);
+  // Columns 5-6 are the split handle track (0) and the split editor:
+  // 0 until a play file opens to the side, then --split-w wide.
+  grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 0 0 var(--chat-w, 330px);
   grid-template-rows: minmax(0, 1fr) 0 var(--term-h, 180px);
   min-height: 0;
+
+  // Split is desktop-only — on mobile it overlays the editor instead.
+  @media (min-width: 861px) {
+    &--split {
+      grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 var(--split-w, 480px) 0 var(--chat-w, 330px);
+    }
+
+    &--split.workbench--no-chat {
+      grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 var(--split-w, 480px) 0 0;
+    }
+  }
 
   // Closed panels keep their grid cells but zero the tracks — the
   // components stay mounted so chat history and term scrollback survive.
   &--no-chat {
-    grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 0;
+    grid-template-columns: 44px var(--explorer-w, 210px) 0 1fr 0 0 0 0;
   }
 
   &--no-term {
@@ -148,10 +161,15 @@ body {
     cursor: row-resize;
   }
 
-  // Bottom panel handle sits under the editor column only — explorer and
-  // chat run full height, like a real IDE's bottom panel.
+  // Bottom panel handle sits under the editor columns only — explorer
+  // and chat run full height, like a real IDE's bottom panel.
   &--term {
-    grid-area: 2 / 4;
+    grid-area: 2 / 4 / 3 / 7;
+  }
+
+  // Split handle — row 1 only, so it doesn't float over the terminal.
+  &--split {
+    grid-area: 1 / 5;
   }
 
   // Sidebars and their handles span all rows so no dead cells flank the
@@ -162,7 +180,7 @@ body {
   }
 
   &--chat {
-    grid-area: 1 / 5 / 4 / 6;
+    grid-area: 1 / 7 / 4 / 8;
   }
 
   &:hover,
@@ -295,7 +313,7 @@ body.is-resizing-y {
   }
 
   &__tw {
-    font-size: 10px;
+    font-size: 12px;
     width: 12px;
   }
 }
@@ -373,13 +391,15 @@ body.is-resizing-y {
 
   &__graph,
   &__game,
-  &__pdf {
+  &__pdf,
+  &__play {
     flex: 1;
     min-height: 0;
     display: flex;
   }
 
-  &__pdf iframe {
+  &__pdf iframe,
+  &__play iframe {
     flex: 1;
     border: 0;
   }
@@ -483,7 +503,8 @@ body.is-resizing-y {
     font-style: italic;
   }
 
-  a {
+  // Content links only — tabs are anchors too, and must keep tab chrome.
+  &__pre a {
     color: var(--accent);
     text-decoration: none;
     border-bottom: 1px dashed var(--accent);
@@ -637,6 +658,13 @@ body.is-resizing-y {
       transition: none;
     }
   }
+}
+
+// Split editor group — play files open to the side of the main editor.
+// Row 1 only: the terminal still runs the full editor width beneath.
+.editor--split {
+  grid-area: 1 / 6;
+  border-left: 1px solid var(--border);
 }
 
 // Game — ASCII snowboard in the editor body (Snowboard.jsx). -----------------
@@ -809,7 +837,7 @@ body.is-resizing-y {
 // Chat ----------------------------------------------------------------------
 
 .chat {
-  grid-area: 1 / 6 / 4 / 7;
+  grid-area: 1 / 8 / 4 / 9;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -898,7 +926,7 @@ body.is-resizing-y {
 // Terminal — fake shell across the workbench bottom. --------------------------
 
 .terminal {
-  grid-area: 3 / 4;
+  grid-area: 3 / 4 / 4 / 7;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1037,7 +1065,8 @@ body.is-resizing-y {
   }
 
   .explorer,
-  .divider--explorer {
+  .divider--explorer,
+  .divider--split {
     display: none;
   }
 
@@ -1067,6 +1096,13 @@ body.is-resizing-y {
   // Stacked layout — every panel takes the full-width row right of the rail.
   .editor {
     grid-area: 1 / 2;
+  }
+
+  // No third column on a phone — play files open as normal tabs, so a
+  // split left over from a wider window must not linger as an overlay.
+  // display:none (not unmount) keeps the iframe's run alive.
+  .editor--split {
+    display: none;
   }
 
   .divider--chat {

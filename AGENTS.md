@@ -32,5 +32,10 @@ Design doc: `docs/DESIGN.md`.
   built from `SITE.links`, centered on `SITE.graphCenter`.
 - `.prefixer/namespaces.md` maps search namespaces — start searches scoped
   (`api:`, `ide:`, `content:`, `styles:`...) before widening to root.
+- Agent/SEO layer is generated, not edited: the `agents` plugin in
+  `vite.config.js` emits `llms.txt`/`llms-full.txt` from `src/content/site/`
+  at build (served in dev too) and fills index.html's `@prerender` marker
+  with a crawler mirror. Explorer rows and editor tabs are real anchors
+  (`href` = deep link, click intercepted) — keep them that way.
 - `graphify-out/` (gitignored) holds a knowledge graph of the repo — treat
   codebase questions as graph queries first; rebuild with `/graphify . --update`.
