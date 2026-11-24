@@ -53,8 +53,8 @@ const resolve = (pathname) => {
 };
 const boot = resolve(location.pathname);
 
-// Tabs that render a component instead of file text — graph view plus
-// the WIP placeholders. None of them count as "the explorer is open".
+// Tabs that render a component instead of file text — graph, metrics,
+// a/b. None of them count as "the explorer is open".
 const PSEUDO = new Set([SITE.graphTab, SITE.metricsTab, SITE.abTab]);
 
 export default function App() {
