@@ -23,7 +23,7 @@ const arg = (n, d) => {
   return i > -1 ? process.argv[i + 1] : d;
 };
 const SECS = Number(arg("--seconds", 20));
-const TAKES = Number(arg("--takes", 2));
+const TAKES = Number(arg("--takes", 4));
 const OUT = arg("--out", "public/snowboard-game.mp4");
 const PAGE = "snowboard/game";
 const PORT = 5199;
@@ -141,21 +141,31 @@ const recordExpr = `(async () => {
   const key = (t) =>
     window.dispatchEvent(new KeyboardEvent(t, { code: "Space", key: " ", cancelable: true }));
   let held = false;
-  // On snow always release — holding just carves speed away. In the air
-  // hold to dive for speed and wind up a flip; once past half a turn the
-  // board carries through, so let go and it snaps level for the landing.
+  let flipsSeen = 0;
+  // Held is the fast verb — doubles the pump on snow and dives in the
+  // air, which is what throws flips. The only release is the back half
+  // of a rotation: past half a turn the board carries through, so let
+  // go and it snaps level for the landing.
   const pilot = setInterval(() => {
     const st = window.__st;
     if (!st) return;
-    const want = st.ground ? false : st.spin > 0 ? st.spin < Math.PI : true;
+    if (st.flips > flipsSeen) flipsSeen = st.flips;
+    const want = st.spin >= Math.PI ? false : true;
     if (want !== held) { held = want; key(held ? "keydown" : "keyup"); }
   }, 40);
-  await sleep(${SECS} * 1000);
+  // run the clock, but cut 1.2s after a slam — a long tail of
+  // over-screen dead air makes a weak clip
+  const t0 = performance.now();
+  while (performance.now() - t0 < ${SECS} * 1000) {
+    if (window.__st?.over) { await sleep(1200); break; }
+    await sleep(100);
+  }
   clearInterval(pilot);
   key("keyup");
   const st = window.__st;
   const stats = {
     dist: st ? Math.floor(st.x - st.start) : 0,
+    flips: flipsSeen,
     over: !!st?.over, death: st?.death ?? null,
     w: canvas.width, h: canvas.height,
   };
@@ -185,8 +195,10 @@ for (let take = 1; take <= TAKES; take++) {
   if (r.err) throw new Error(r.err);
   const f = join(dir, `take${take}.webm`);
   writeFileSync(f, Buffer.from(r.b64, "base64"));
-  console.log(`take ${take}: ${r.stats.dist}m ${r.stats.over ? `(${r.stats.death})` : "(still riding)"} ${r.stats.w}x${r.stats.h}`);
-  if (!best || r.stats.dist > best.stats.dist) best = { f, stats: r.stats };
+  console.log(`take ${take}: ${r.stats.dist}m flips:${r.stats.flips} ${r.stats.over ? `(${r.stats.death})` : "(still riding)"} ${r.stats.w}x${r.stats.h}`);
+  // a take with a banked flip beats a longer one without
+  const score = (s) => (s.flips > 0 ? 1e6 : 0) + s.dist;
+  if (!best || score(r.stats) > score(best.stats)) best = { f, stats: r.stats };
 }
 
 // --- encode ------------------------------------------------------------------
@@ -203,4 +215,6 @@ const probe = execFileSync("ffprobe", [
   "-v", "error", "-select_streams", "v:0",
   "-show_entries", "stream=width,height", "-of", "csv=p=0", OUT,
 ]).toString().trim();
-console.log(`wrote ${OUT} (${probe}) — best take ${best.stats.dist}m`);
+console.log(`wrote ${OUT} (${probe}) — best take ${best.stats.dist}m, flips:${best.stats.flips}`);
+ws.close(); // the open CDP socket would keep the event loop alive
+process.exit(0);

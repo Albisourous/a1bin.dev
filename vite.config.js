@@ -66,7 +66,7 @@ const gameShare = () => ({
     <meta property="og:video:secure_url" content="https://a1bin.dev/snowboard-game.mp4" />
     <meta property="og:video:type" content="video/mp4" />
     <meta property="og:video:width" content="1200" />
-    <meta property="og:video:height" content="726" />`
+    <meta property="og:video:height" content="724" />`
         )
     );
   },
