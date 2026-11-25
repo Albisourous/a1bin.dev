@@ -255,10 +255,10 @@ function step(st, dt) {
       if (s < 0) st.vx += -s * PUSH * (st.held ? 0.5 : 1) * dt;
       else st.vx += -s * PUSH * dt;
       st.vx += (13 - st.vx) * 0.5 * dt;
-      // held on the snow — a carve, not a dive: friction bleeds speed
-      // so an always-held run stalls out. Only a descent steep enough
-      // to out-pump the carve still gains; timing is the skill.
-      if (st.held) st.vx -= CARVE * dt;
+      // held on the snow — a carve, not a dive: friction scrubs speed
+      // down to the glide. Below it the edges stop digging in — a
+      // held start doesn't stall the run on the first foothill.
+      if (st.held && st.vx > 13) st.vx -= CARVE * dt;
     }
   } else {
     st.vy -= g * dt;
@@ -450,7 +450,9 @@ function step(st, dt) {
     (st.combo >= 3 ? V_MAX + 8 : V_MAX) + (st.boost > 0 ? 15 : 0);
   // carving can pull speed under the glide floor — that's the stall.
   // Release before it hits zero and the snow hands the glide back.
-  const vmin = st.ground && st.held ? 0 : V_MIN;
+  // held digs in — the floor drops but never to zero: an always-held
+  // run crawls and starves under the sun instead of stalling in place
+  const vmin = st.ground && st.held ? 6 : V_MIN;
   st.vx = Math.min(vmax, Math.max(vmin, st.vx));
   if (st.ground && st.vx <= 0.3 && !st.over) {
     st.vx = 0;
@@ -962,7 +964,10 @@ export default function Snowboard({ onOpenFile }) {
       }
       if (e.code === "Space") {
         e.preventDefault();
-        if (!st.over) st.held = true;
+        // a press during the lift ride — or an auto-repeat of one —
+        // can't carry "held" into the run; carving the flat opening
+        // stall-killed runs that started with space already down
+        if (!e.repeat && !st.over && st.intro <= 0) st.held = true;
       }
     };
     const up = (e) => {
@@ -1012,8 +1017,10 @@ export default function Snowboard({ onOpenFile }) {
       onContextMenu={(e) => e.preventDefault()}
       onSelectStart={(e) => e.preventDefault()}
       onPointerDown={(e) => {
-        // a run's ending is inert — only the restart button rides again
-        if (sim.current.over) return;
+        // a run's ending is inert — only the restart button rides again.
+        // Same lift gate as Space: a finger held through the intro
+        // can't start the run already carving.
+        if (sim.current.over || sim.current.intro > 0) return;
         e.currentTarget.setPointerCapture(e.pointerId);
         sim.current.held = true;
       }}
