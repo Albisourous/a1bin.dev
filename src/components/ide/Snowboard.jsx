@@ -99,7 +99,6 @@ const G_FLOAT = 16; // released — floaty, hangs in the air
 const G_GLIDE = 6; // spinning — the tuck planes and falls slowest
 const G_DIVE = 70; // held — drops hard
 const PUSH = 50; // slope → speed coupling on the snow
-const CARVE = 14; // held-on-snow friction — digging in scrubs speed
 const PITCH_MAX = 1.15; // rad — the board's steepest pitch; diving past it throws the flip
 const FLIP_ALT = 7; // units of clear snow under the board before a throw is allowed
 const SPIN_RAMP = 8; // wound up — spin rate climbs fast
@@ -115,7 +114,7 @@ const SLIDE_AIR = 0.7; // seconds aloft before a downslope landing counts
 // an arm is still a landing
 const HEAD_R = 1.4; // head tip above the board
 const TIP_R = 0.9; // board tip reach
-const V_MIN = 10;
+const V_MIN = 18; // glide floor — unheld rides never drop under this
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
 const INTRO = 0.55; // lift ride before the run starts
@@ -256,21 +255,17 @@ function step(st, dt) {
     } else {
       st.y = y2;
       st.vy = s * st.vx;
-      // held cuts the downhill push to a carve — only a steep
-      // enough descent still out-earns the bleed, so the skill is
-      // diving in the air and releasing to pump on the snow
-      if (s < 0) st.vx += -s * PUSH * (st.held ? 0.5 : 1) * dt;
-      else st.vx += -s * PUSH * dt;
+      // held doubles the pump — the committed tuck — while the
+      // release only gets the loose pump. On snow there's no carve:
+      // holding is the fast verb, the cost lives in the air
+      if (s < 0) st.vx += -s * PUSH * (st.held ? 2 : 1) * dt;
+      // climbs bleed at half the rate descents pay — speed carries
+      // up the faces instead of dying on them
+      else st.vx += -s * PUSH * 0.5 * dt;
       // the glide pull only rescues a released ride — held and already
       // slow, no assist is left: a climb stalls the run outright
       // instead of pinning it mid-slope
-      if (!st.held || st.vx > V_MIN) st.vx += (13 - st.vx) * 0.5 * dt;
-      // held on the snow — a carve, not a dive: friction scrubs speed
-      // down to the glide. Below it the edges stop digging in — a
-      // held start doesn't stall the run on the first foothill. And
-      // the drop-in gets a grace: the hint says hold to drop, so the
-      // first stretch can't punish a finger still down from the lift
-      if (st.held && st.vx > 13 && st.t > 1.5) st.vx -= CARVE * dt;
+      if (!st.held || st.vx > V_MIN) st.vx += (18 - st.vx) * 0.5 * dt;
     }
   } else {
     st.vy -= g * dt;
@@ -376,28 +371,27 @@ function step(st, dt) {
         st.ground = true;
         st.y = y2;
         st.vy = s2 * st.vx;
-        // a slide only counts when it lands a real flight — riding
-        // the terrain's own little hops buys no daylight and builds
-        // no combo, so coasting a run out doesn't pay
+        st.combo += 1;
+        st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
+        // daylight income only lands after a real flight — hops still
+        // kick and combo, but riding the terrain's own little bumps
+        // never buys time, so coasting a run out doesn't pay
         if (st.t - st.air > SLIDE_AIR) {
-          st.combo += 1;
-          st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
-          // daylight income — only a clean downslope landing pays: a
-          // small slide bonus (doubled in fever) plus a slice of the
-          // flight it took to arrive. The bank caps at the starting
-          // 15s — income is only worth what mistakes already spent.
+          // a small slide bonus (doubled in fever) plus a slice of
+          // the flight it took to arrive. The bank caps at the
+          // starting 15s — income is only worth what mistakes spent.
           st.dayLen = Math.min(
             st.dayLen + (st.combo >= 3 ? 0.2 : 0.1) + (st.t - st.air) * 0.1,
             st.t + RUN_LEN
           );
-          say({
-            x: st.x,
-            y: st.y,
-            t: 0,
-            text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
-            kind: "good",
-          });
-        } else st.combo = 0;
+        }
+        say({
+          x: st.x,
+          y: st.y,
+          t: 0,
+          text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
+          kind: "good",
+        });
       } else if (s2 > 0.28) {
         // upslope — a soft touch still rides the rise out, just
         // scrubbed; carrying real speed into the face is a slam, not
