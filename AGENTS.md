@@ -15,6 +15,11 @@ Design doc: `docs/DESIGN.md`.
   `vercel.json` `functions.includeFiles`. `api/resume.txt` is
   Resume.pdf extracted — regenerate when the PDF changes:
   `osascript -l JavaScript -e 'ObjC.import("Quartz"); const u=$.NSURL.fileURLWithPath("<abs>/src/content/site/Resume.pdf"); $.PDFDocument.alloc.initWithURL(u).string.js' > api/resume.txt`
+- Share preview: `dist/snowboard/game/index.html` (gameShare plugin)
+  carries `og:video` → `public/snowboard-game.mp4` for iMessage/Slack
+  previews. Regenerate the clip with `npm run record:game` — headless
+  Chrome + ffmpeg via `scripts/record-game.mjs`; it stubs /api/scores
+  and /api/metrics in-page so takes never post real runs.
 - Files shown in the IDE are real files in `src/content/site/` — the explorer
   mirrors that folder via `import.meta.glob` in `site.js`. Other copy (chat,
   labels, graph edges) lives in `src/content/site.js` — never hardcode strings.

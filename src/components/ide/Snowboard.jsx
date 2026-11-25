@@ -29,34 +29,62 @@ import { SITE } from "../../content/site.js";
 // Tokens hang on jump arcs: daylight is earned by launching high
 // at speed. Hold a dive in the air and it winds up a spin — one
 // flip a flight, +3s and a speed kick for it, planing on lighter
-// gravity. Touching snow mid-rotation slaps you back up still
-// turned — hold to spin back level and save it, or bleed speed
-// until a stall does you in. Hills steepen with distance.
+// gravity. Touching snow barely into the turn slaps you back up
+// still spinning — hold to spin back level and save it — but a
+// catch deeper into the rotation digs the deck in for a slam.
+// Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
 const VIEW_H = 26; // world units of vertical range
 
 // hills steepen with distance — a run has its own difficulty curve.
-// ph is a per-run phase triple rolled in fresh(). It fades in past
-// DIVERGE: every run drops onto the same foothills, then the mountains
-// slowly go their own way so wipeouts stop landing on one spot.
+// ter is the run's terrain roll from fresh(): the first DIVERGE
+// meters ride the shared foothills, then each octave's amplitude,
+// frequency and phase blend toward the run's own params over FADE —
+// every start stays learnable, no two mountains match
 const DIVERGE = 300; // meters of shared terrain before runs split
-const FADE = 600; // meters until the run's own phases are fully in
-const hill = (x, ph) => {
-  const b = Math.min(1, Math.max(0, (x - DIVERGE) / FADE));
-  return (
-    (1 + Math.min(1, Math.max(0, x) * 0.001)) *
-    (5.2 * Math.sin(x * 0.072 + ph[0] * b) +
-      3.0 * Math.sin(x * 0.027 + 1.7 + ph[1] * b) +
-      1.5 * Math.sin(x * 0.13 + 4.2 + ph[2] * b))
-  );
+const FADE = 600; // meters until the run's own params are fully in
+const TER_BASE = {
+  amp: [5.2, 3.0, 1.5],
+  frq: [0.072, 0.027, 0.13],
+  ph: [0, 1.7, 4.2],
+  steep: 0.001, // distance-steepening rate
 };
-const slope = (x, ph) => (hill(x + 0.4, ph) - hill(x - 0.4, ph)) / 0.8;
+// each octave drifts inside a band, then amplitudes rescale to a
+// slope budget — Σ amp·freq pinned near the original 0.65, so no
+// seed draws flat plains or sheer walls and the landing bands keep
+// the same difficulty envelope run to run
+const rollTer = (seed) => {
+  const r = (k) => hash(seed + k * 101) / 4294967296;
+  const ter = {
+    amp: [4.2 + r(1) * 2.4, 2.0 + r(2) * 2.0, 0.9 + r(3) * 1.7],
+    frq: [0.05 + r(4) * 0.045, 0.018 + r(5) * 0.022, 0.08 + r(6) * 0.1],
+    ph: TER_BASE.ph.map((p, i) => p + r(7 + i) * Math.PI * 2),
+    steep: 0.0012 + r(10) * 0.001,
+  };
+  const k = ter.amp.reduce((s, a, i) => s + a * ter.frq[i], 0);
+  const m = k > 0.8 ? 0.8 / k : k < 0.5 ? 0.5 / k : 1;
+  if (m !== 1) ter.amp = ter.amp.map((a) => a * m);
+  return ter;
+};
+const hill = (x, ter) => {
+  const b = Math.min(1, Math.max(0, (x - DIVERGE) / FADE));
+  const mix = (r, base) => base + (r - base) * b;
+  let y = 0;
+  for (let i = 0; i < 3; i++)
+    y +=
+      mix(ter.amp[i], TER_BASE.amp[i]) *
+      Math.sin(
+        x * mix(ter.frq[i], TER_BASE.frq[i]) + mix(ter.ph[i], TER_BASE.ph[i])
+      );
+  return (1 + Math.min(1, Math.max(0, x)) * mix(ter.steep, TER_BASE.steep)) * y;
+};
+const slope = (x, ter) => (hill(x + 0.4, ter) - hill(x - 0.4, ter)) / 0.8;
 // the run starts on the first crest — lift drops you on a hilltop
-const startFor = (ph) => {
+const startFor = (ter) => {
   for (let x = 0.5; x < 200; x += 0.25)
-    if (slope(x - 0.5, ph) > 0 && slope(x + 0.5, ph) <= 0) return x;
+    if (slope(x - 0.5, ter) > 0 && slope(x + 0.5, ter) <= 0) return x;
   return 0;
 };
 
@@ -72,6 +100,9 @@ const SPIN_MAX = 26; // rad/s — a full turn about every quarter second
 const SPIN_OUT = 36; // released — the spin glides back to zero
 const SPIN_GLIDE = 4; // rad/s — this much spin planes on lighter gravity
 const FLIP_OK = 0.9; // rad off-level — past this a touch is a rotated slap
+const SLAM_SPIN = 1.4; // rad into the turn — a deeper catch digs the deck in
+const SLAM_HIT = 32; // m/s driven into an upslope face — harder face-plants
+const SLIDE_AIR = 0.7; // seconds aloft before a downslope landing counts
 // rider extremities in world units — while spinning the head swings
 // below the board; the head touching snow is a slam, a board tip or
 // an arm is still a landing
@@ -84,17 +115,17 @@ const INTRO = 0.55; // lift ride before the run starts
 
 const fresh = () => {
   const seed = (Math.random() * 0xffffffff) >>> 0;
-  const ph = [0, 1, 2].map((i) => (hash(seed + i) / 4294967296) * Math.PI * 2);
-  const start = startFor(ph);
+  const ter = rollTer(seed);
+  const start = startFor(ter);
   return {
     seed,
-    ph,
+    ter,
     start,
     x: start,
-    y: hill(start, ph),
+    y: hill(start, ter),
     vy: 0,
     vx: 14,
-    cam: hill(start, ph),
+    cam: hill(start, ter),
     ground: true,
     held: false,
     combo: 0, // consecutive perfect slides
@@ -121,27 +152,38 @@ const fresh = () => {
 };
 
 const hash = (n) => {
-  n = (n * 2654435761) >>> 0;
-  return (n ^ (n >> 13)) >>> 0;
+  // imul keeps the low 32 exact — plain * overflows 2^53 — and >>>
+  // is required: a signed >> 13 sign-extends and the XOR clears the
+  // top bit, halving the range (phases never passed PI)
+  n = Math.imul(n, 2654435761) >>> 0;
+  return (n ^ (n >>> 13)) >>> 0;
 };
 
-// placement (tokens, pines, specks) re-keys on the run seed past the
-// shared opening — early runs match, later runs scatter
-const placeHash = (n, seed) => hash(n ^ (n > DIVERGE ? seed : 0));
+// placement (tokens, pines, specks) re-keys on the run seed from the
+// first meter — the foothills stay shared, the dressing never is
+const placeHash = (n, seed) => hash(n ^ seed);
 
 // sun tokens thin out with distance until a plateau — from ~1km on
 // the spacing holds, so a run that keeps speed and keeps grabbing
-// tokens stays ahead of the sun. Miss a stretch and you ride in the dark.
-const sunGap = (n) => Math.min(37, Math.round((24 + Math.floor(Math.max(0, n) / 55)) / 1.25));
+// tokens stays ahead of the sun. Miss a stretch and you ride in the
+// dark. The pacing rolls with the seed inside bands that keep
+// daylight income fair.
+const sunGap = (n, seed) => {
+  const h = hash(seed ^ 0x5eed);
+  const base = 20 + (h % 9); // first gaps: every 20–28 candidacies
+  const per = 48 + ((h >>> 4) % 17); // thins one step every 48–64 m
+  const cap = 33 + ((h >>> 9) % 8); // plateau: every 33–40
+  return Math.min(cap, Math.round((base + Math.floor(Math.max(0, n) / per)) / 1.25));
+};
 // a token at world x — candidacy is hashed per meter, and a
 // candidate survives only with clear air behind it. The lookback
 // runs on candidates, not survivors, so clumps collapse to their
 // first member instead of flapping.
 const TOKEN_MIN = 9; // meters of clear snow before a token may spawn
 const isToken = (n, seed) => {
-  if (placeHash(n, seed) % sunGap(n) !== 0) return false;
+  if (placeHash(n, seed) % sunGap(n, seed) !== 0) return false;
   for (let k = n - TOKEN_MIN; k < n; k++)
-    if (placeHash(k, seed) % sunGap(k) === 0) return false;
+    if (placeHash(k, seed) % sunGap(k, seed) === 0) return false;
   return true;
 };
 // token height at world x, or null where none belongs. Terrain
@@ -150,19 +192,19 @@ const isToken = (n, seed) => {
 // ground is a launch, and there the token may sit on the jump arc,
 // capped at hop height. A rare few stay at boot level as a
 // breadcrumb for runs still building speed.
-const tokenY = (n, h, ph) => {
-  if ((h >> 7) % 10 === 0) return hill(n, ph) + 0.7 + ((h >> 4) % 3) * 0.5;
+const tokenY = (n, h, ter) => {
+  if ((h >>> 7) % 10 === 0) return hill(n, ter) + 0.7 + ((h >>> 4) % 3) * 0.5;
   // knee-to-head jitter — some skim the boot, some need a hop
-  const band = hill(n, ph) + 0.6 + ((h >> 5) % 21) / 10;
-  if (slope(n, ph) <= 0.2) return band;
+  const band = hill(n, ter) + 0.6 + ((h >>> 5) % 21) / 10;
+  if (slope(n, ter) <= 0.2) return band;
   let y = -Infinity;
   for (let x0 = n - 16; x0 < n - 3; x0++) {
     const v = 55;
-    const vy0 = Math.min(Math.max(0, slope(x0 - 0.6, ph)) * v * 1.25, 28);
+    const vy0 = Math.min(Math.max(0, slope(x0 - 0.6, ter)) * v * 1.25, 28);
     const t = (n - x0) / v;
-    y = Math.max(y, hill(x0, ph) + vy0 * t - 0.5 * G_FLOAT * t * t);
+    y = Math.max(y, hill(x0, ter) + vy0 * t - 0.5 * G_FLOAT * t * t);
   }
-  return y > band + 0.6 ? Math.min(y, hill(n, ph) + 5) : band;
+  return y > band + 0.6 ? Math.min(y, hill(n, ter) + 5) : band;
 };
 
 function step(st, dt) {
@@ -181,7 +223,7 @@ function step(st, dt) {
   const say = (fx) => {
     if (st.fx?.kind !== "flip") st.fx = fx;
   };
-  const s = slope(st.x, st.ph);
+  const s = slope(st.x, st.ter);
   const g =
     st.spinV > SPIN_GLIDE
       ? G_GLIDE
@@ -189,7 +231,7 @@ function step(st, dt) {
         ? G_DIVE
         : G_FLOAT;
   if (st.ground) {
-    const y2 = hill(st.x, st.ph);
+    const y2 = hill(st.x, st.ter);
     // launch when the ballistic arc stays above the new ground —
     // i.e. the hill curved away under the board
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
@@ -236,7 +278,7 @@ function step(st, dt) {
     const canSpin =
       (st.holdAir >= 0.3 &&
         committed &&
-        st.y - hill(st.x, st.ph) > FLIP_ALT) ||
+        st.y - hill(st.x, st.ter) > FLIP_ALT) ||
       st.spin > 0;
     if (st.held && canSpin) {
       // the throw — a held key past the gate kicks the spin up
@@ -270,11 +312,11 @@ function step(st, dt) {
         stick: true,
       };
     }
-    const y2 = hill(st.x, st.ph);
+    const y2 = hill(st.x, st.ter);
     // body angle off the slope — spinning swings the head below the
-    // board. The head meeting snow is the only lethal touchdown; a
-    // rotated board touch just slaps you back up still turning —
-    // hold space to spin level and save it.
+    // board. Lethal touchdowns: head-first, or the deck catching
+    // deep into the rotation. A shallow rotated touch just slaps
+    // you back up still turning — hold space to spin level and save it.
     const tilt =
       st.spin +
       Math.max(-PITCH_MAX, Math.min(PITCH_MAX, -Math.atan2(st.vy, st.vx))) +
@@ -285,16 +327,20 @@ function step(st, dt) {
     const limbHit = headLow > boardTip && st.y - headLow <= y2;
     if (limbHit || st.y <= y2) {
       st.spinV *= 0.5; // contact eats half the rate, not the turn
-      const s2 = slope(st.x, st.ph);
+      const s2 = slope(st.x, st.ter);
       // board angle off the slope — a rotated touch is a slap, the
       // rest is the usual landing math
       const off = tilt - Math.round(tilt / (Math.PI * 2)) * Math.PI * 2;
-      if (limbHit) {
-        // head into the snow — the one lethal impact. Anything the
-        // board touches first is survivable: slap, bounce, or ride.
+      // rotation depth at contact — how far through the flip the deck
+      // caught snow. Inside the save window a rotated touch still
+      // slaps; deeper than that it catches like an edge and slams
+      const soff = st.spin < Math.PI ? st.spin : Math.PI * 2 - st.spin;
+      if (limbHit || soff > SLAM_SPIN) {
+        // head-first or a deep edge catch — the two lethal impacts.
+        // Anything shallower is survivable: slap, bounce, or ride.
         st.ground = true;
         st.crashed = true;
-        st.death = "head-first slam";
+        st.death = limbHit ? "head-first slam" : "caught an edge";
         st.over = true;
         st.y = y2;
         say({ x: st.x, y: st.y, t: 0, text: "slam!", kind: "bad" });
@@ -318,30 +364,46 @@ function step(st, dt) {
         st.ground = true;
         st.y = y2;
         st.vy = s2 * st.vx;
-        st.combo += 1;
-        st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
-        // daylight income — only a clean downslope landing pays: a
-        // small slide bonus (doubled in fever) plus a slice of the
-        // flight it took to arrive. The bank caps at the starting
-        // 15s — income is only worth what mistakes already spent.
-        st.dayLen = Math.min(
-          st.dayLen + (st.combo >= 3 ? 0.2 : 0.1) + (st.t - st.air) * 0.1,
-          st.t + RUN_LEN
-        );
-        say({
-          x: st.x,
-          y: st.y,
-          t: 0,
-          text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
-          kind: "good",
-        });
+        // a slide only counts when it lands a real flight — riding
+        // the terrain's own little hops buys no daylight and builds
+        // no combo, so coasting a run out doesn't pay
+        if (st.t - st.air > SLIDE_AIR) {
+          st.combo += 1;
+          st.vx += -s2 * 9 + Math.min(6, 2 + st.combo);
+          // daylight income — only a clean downslope landing pays: a
+          // small slide bonus (doubled in fever) plus a slice of the
+          // flight it took to arrive. The bank caps at the starting
+          // 15s — income is only worth what mistakes already spent.
+          st.dayLen = Math.min(
+            st.dayLen + (st.combo >= 3 ? 0.2 : 0.1) + (st.t - st.air) * 0.1,
+            st.t + RUN_LEN
+          );
+          say({
+            x: st.x,
+            y: st.y,
+            t: 0,
+            text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
+            kind: "good",
+          });
+        } else st.combo = 0;
       } else if (s2 > 0.28) {
+        // upslope — a soft touch still rides the rise out, just
+        // scrubbed; carrying real speed into the face is a slam, not
+        // a climb. Impact is the speed driven into the wall: the
+        // horizontal plow plus whatever fall you brought down on it
         st.ground = true;
         st.y = y2;
-        st.vy = s2 * st.vx;
         st.combo = 0;
-        st.vx += -s2 * 9;
-        say({ x: st.x, y: st.y, t: 0, text: "rough", kind: "bad" });
+        if (st.vx * s2 - st.vy > SLAM_HIT) {
+          st.crashed = true;
+          st.death = "wiped out";
+          st.over = true;
+          say({ x: st.x, y: st.y, t: 0, text: "slam!", kind: "bad" });
+        } else {
+          st.vx += -s2 * 9;
+          say({ x: st.x, y: st.y, t: 0, text: "rough", kind: "bad" });
+        }
+        st.vy = s2 * st.vx;
       } else if (st.vy < -7) {
         // flat landing with real impact — bounce instead of sliding
         st.combo = 0;
@@ -366,9 +428,9 @@ function step(st, dt) {
   // body has to touch one. Each buys a second of daylight, capped
   // by the 15s buffer like everything else.
   const pn = Math.round(st.x);
-  const ph = placeHash(pn, st.seed);
+  const h = placeHash(pn, st.seed);
   if (isToken(pn, st.seed) && !st.collected.has(pn)) {
-    const py = tokenY(pn, ph, st.ph);
+    const py = tokenY(pn, h, st.ter);
     if (py != null && (st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
       st.dayLen = Math.min(st.dayLen + 1, st.t + RUN_LEN);
@@ -455,21 +517,21 @@ function draw(ctx, st, C, W, H, best) {
   const n0 = Math.floor(camX * 0.5);
   for (let n = n0; n < n0 + VIEW_W * 2 + 4; n++) {
     const h = placeHash(n, st.seed);
-    if (h % 23 !== 0) continue;
-    ctx.fillText(h % 2 ? "'" : ".", (n - camX * 0.5) * sx, 10 + ((h >> 5) % Math.round(anchorY * 0.5)));
+    if (h % (17 + (hash(st.seed ^ 0x5ec) % 13)) !== 0) continue;
+    ctx.fillText(h % 2 ? "'" : ".", (n - camX * 0.5) * sx, 10 + ((h >>> 5) % Math.round(anchorY * 0.5)));
   }
 
   // main slope — filled snow body + bright surface line
   ctx.beginPath();
   ctx.moveTo(0, H);
-  for (let p = 0; p <= W; p += 2) ctx.lineTo(p, ty(hill(camX + p / sx, st.ph)));
+  for (let p = 0; p <= W; p += 2) ctx.lineTo(p, ty(hill(camX + p / sx, st.ter)));
   ctx.lineTo(W, H);
   ctx.closePath();
   ctx.fillStyle = C.raise;
   ctx.fill();
   ctx.beginPath();
   for (let p = 0; p <= W; p += 2) {
-    const y = ty(hill(camX + p / sx, st.ph));
+    const y = ty(hill(camX + p / sx, st.ter));
     p === 0 ? ctx.moveTo(p, y) : ctx.lineTo(p, y);
   }
   ctx.strokeStyle = C.ink;
@@ -481,9 +543,10 @@ function draw(ctx, st, C, W, H, best) {
   ctx.font = `11px ${FONT}`;
   ctx.textAlign = "center";
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
-    if (placeHash(n, st.seed) % 53 !== 0) continue;
+    // density rolls with the seed — one run's glade is the next's forest
+    if (placeHash(n, st.seed) % (40 + (hash(st.seed ^ 0x51e) % 25)) !== 0) continue;
     const tx = (n - camX) * sx;
-    const gy = ty(hill(n, st.ph));
+    const gy = ty(hill(n, st.ter));
     if (gy < 30 || gy > H - 8) continue;
     ctx.fillText("/\\", tx, gy - 24);
     ctx.fillText("/||\\", tx, gy - 14);
@@ -495,7 +558,7 @@ function draw(ctx, st, C, W, H, best) {
   for (let n = Math.ceil((camX - st.start) / 200) * 200 + st.start; n <= camX + VIEW_W; n += 200) {
     if (n <= st.start) continue;
     const tx = (n - camX) * sx;
-    const gy = ty(hill(n, st.ph));
+    const gy = ty(hill(n, st.ter));
     if (gy < 44 || gy > H - 8) continue;
     ctx.fillText("|", tx, gy - 6);
     ctx.fillText(`${n - st.start}m`, tx, gy - 32);
@@ -550,9 +613,9 @@ function draw(ctx, st, C, W, H, best) {
   }
   if (intro >= 0.8) {
   const ang = st.crashed
-    ? -Math.atan(slope(st.x, st.ph)) + 1.35 // ragdoll flat against the slope
+    ? -Math.atan(slope(st.x, st.ter)) + 1.35 // ragdoll flat against the slope
     : st.ground
-      ? -Math.atan(slope(st.x, st.ph))
+      ? -Math.atan(slope(st.x, st.ter))
       : Math.max(-1.15, Math.min(1.15, -Math.atan2(st.vy, st.vx))) +
         st.spin; // front flip — clockwise spin rides the flight path
   // spin ghosts — the deck leaves afterimages while the flip is fast
@@ -696,7 +759,7 @@ function draw(ctx, st, C, W, H, best) {
   for (let n = Math.floor(camX); n < camX + VIEW_W + 4; n++) {
     const h = placeHash(n, st.seed);
     if (!isToken(n, st.seed) || st.collected.has(n)) continue;
-    const wy = tokenY(n, h, st.ph);
+    const wy = tokenY(n, h, st.ter);
     if (wy == null) continue;
     const gy = ty(wy) + Math.sin(st.t * 3 + n) * 1.5;
     drawToken(ctx, (n - camX) * sx, gy);
@@ -782,6 +845,8 @@ const commitName = (st) => {
 export default function Snowboard({ onOpenFile }) {
   const sim = useRef(null);
   if (!sim.current) sim.current = fresh();
+  // dev-only: scripts/record-game.mjs reads the live sim to play a take
+  if (import.meta.env.DEV) window.__st = sim.current;
   const best = useRef(loadBest());
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
