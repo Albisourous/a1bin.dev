@@ -81,11 +81,18 @@ const hill = (x, ter) => {
   return (1 + Math.min(1, Math.max(0, x)) * mix(ter.steep, TER_BASE.steep)) * y;
 };
 const slope = (x, ter) => (hill(x + 0.4, ter) - hill(x - 0.4, ter)) / 0.8;
-// the run starts on the first crest — lift drops you on a hilltop
+// the run starts just past the first crest — the lift drops you on
+// the roll, not the flat top, so the run opens already descending
 const startFor = (ter) => {
+  let crest = 0;
   for (let x = 0.5; x < 200; x += 0.25)
-    if (slope(x - 0.5, ter) > 0 && slope(x + 0.5, ter) <= 0) return x;
-  return 0;
+    if (slope(x - 0.5, ter) > 0 && slope(x + 0.5, ter) <= 0) {
+      crest = x;
+      break;
+    }
+  for (let x = crest; x < crest + 30; x += 0.25)
+    if (slope(x, ter) < -0.2) return x;
+  return crest;
 };
 
 const G_FLOAT = 16; // released — floaty, hangs in the air
@@ -124,7 +131,7 @@ const fresh = () => {
     x: start,
     y: hill(start, ter),
     vy: 0,
-    vx: 14,
+    vx: 20,
     cam: hill(start, ter),
     ground: true,
     held: false,
@@ -260,8 +267,10 @@ function step(st, dt) {
       if (!st.held || st.vx > V_MIN) st.vx += (13 - st.vx) * 0.5 * dt;
       // held on the snow — a carve, not a dive: friction scrubs speed
       // down to the glide. Below it the edges stop digging in — a
-      // held start doesn't stall the run on the first foothill.
-      if (st.held && st.vx > 13) st.vx -= CARVE * dt;
+      // held start doesn't stall the run on the first foothill. And
+      // the drop-in gets a grace: the hint says hold to drop, so the
+      // first stretch can't punish a finger still down from the lift
+      if (st.held && st.vx > 13 && st.t > 1.5) st.vx -= CARVE * dt;
     }
   } else {
     st.vy -= g * dt;
