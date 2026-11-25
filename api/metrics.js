@@ -51,7 +51,13 @@ const DAY_TTL = 100 * 86400;
 
 // death causes the client can legitimately send — anything else is
 // ignored, not rejected (the run counter still bumps)
-const CAUSES = new Set(["wiped out", "stalled out", "out of time"]);
+const CAUSES = new Set([
+  "wiped out",
+  "head-first slam",
+  "caught an edge",
+  "stalled out",
+  "out of time",
+]);
 
 const dayKey = (d) => `metrics:day:${d}`;
 const expKey = (id) => `metrics:exp:${id}`;
