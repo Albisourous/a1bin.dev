@@ -27,7 +27,11 @@ import { SITE } from "../../content/site.js";
 // can't hoard, rough landings and missed tokens bleed it, and at
 // zero the next touchdown ends it — the last flight glides out.
 // Tokens hang on jump arcs: daylight is earned by launching high
-// at speed. Hills steepen with distance.
+// at speed. Hold a dive in the air and it winds up a spin — one
+// flip a flight, +3s and a speed kick for it, planing on lighter
+// gravity. Touching snow mid-rotation slaps you back up still
+// turned — hold to spin back level and save it, or bleed speed
+// until a stall does you in. Hills steepen with distance.
 
 const LEAD = 13; // rider's distance from the left edge, world units
 const VIEW_W = 52; // world units visible across the canvas
@@ -57,9 +61,22 @@ const startFor = (ph) => {
 };
 
 const G_FLOAT = 16; // released — floaty, hangs in the air
+const G_GLIDE = 6; // spinning — the tuck planes and falls slowest
 const G_DIVE = 70; // held — drops hard
 const PUSH = 50; // slope → speed coupling on the snow
 const CARVE = 14; // held-on-snow friction — digging in scrubs speed
+const PITCH_MAX = 1.15; // rad — the board's steepest pitch; diving past it throws the flip
+const FLIP_ALT = 7; // units of clear snow under the board before a throw is allowed
+const SPIN_RAMP = 8; // wound up — spin rate climbs fast
+const SPIN_MAX = 26; // rad/s — a full turn about every quarter second
+const SPIN_OUT = 36; // released — the spin glides back to zero
+const SPIN_GLIDE = 4; // rad/s — this much spin planes on lighter gravity
+const FLIP_OK = 0.9; // rad off-level — past this a touch is a rotated slap
+// rider extremities in world units — while spinning the head swings
+// below the board; the head touching snow is a slam, a board tip or
+// an arm is still a landing
+const HEAD_R = 1.4; // head tip above the board
+const TIP_R = 0.9; // board tip reach
 const V_MIN = 10;
 const V_MAX = 55;
 const RUN_LEN = 15; // seconds before the first nightfall
@@ -82,6 +99,13 @@ const fresh = () => {
     held: false,
     combo: 0, // consecutive perfect slides
     air: 0, // st.t at launch — hangtime refunds land on a clean slide
+    holdAir: 0, // seconds held airborne — the flip wants a real grab
+    spin: 0, // board rotation this flight, rad — forward is a front flip
+    spinV: 0, // rad/s — ramps while held, glides out on release
+    flips: 0, // full turns banked this flight — each pays +2s
+    stoked: 0, // hands-up celebration left after a banked turn, sec
+    hitstop: 0, // brief freeze on a banked turn — the punch
+    boost: 0, // seconds of flip-landing speed burst left
     fx: null, // floating feedback label {x, y, t, text, kind}
     intro: INTRO, // riding the lift in — the clock hasn't started
     t: 0, // seconds ridden — night falls at dayLen
@@ -146,10 +170,24 @@ function step(st, dt) {
     st.intro -= dt;
     return;
   }
+  // a banked turn stops the world for a beat so the +2s lands
+  if (st.hitstop > 0) {
+    st.hitstop -= dt;
+    return;
+  }
   st.t += dt;
   st.x += st.vx * dt;
+  // a live +2s keeps floating up the rider — lesser pops can't clobber it
+  const say = (fx) => {
+    if (st.fx?.kind !== "flip") st.fx = fx;
+  };
   const s = slope(st.x, st.ph);
-  const g = st.held ? G_DIVE : G_FLOAT;
+  const g =
+    st.spinV > SPIN_GLIDE
+      ? G_GLIDE
+      : st.held && st.spin === 0
+        ? G_DIVE
+        : G_FLOAT;
   if (st.ground) {
     const y2 = hill(st.x, st.ph);
     // launch when the ballistic arc stays above the new ground —
@@ -157,6 +195,11 @@ function step(st, dt) {
     if (st.y + st.vy * dt - 0.5 * g * dt * dt > y2) {
       st.ground = false;
       st.air = st.t; // hangtime clock starts at launch
+      st.holdAir = 0;
+      st.spin = 0;
+      st.spinV = 0;
+      st.flips = 0; // spin state starts fresh each flight
+      st.stoked = 0;
       // lip kick — a sharp crest throws extra height, like a real kicker
       st.vy = Math.min(st.vy * 1.25, 28);
       st.vy -= g * dt;
@@ -164,7 +207,10 @@ function step(st, dt) {
     } else {
       st.y = y2;
       st.vy = s * st.vx;
-      if (s < 0) st.vx += -s * PUSH * (st.held ? 2 : 1) * dt;
+      // held cuts the downhill push to a carve — only a steep
+      // enough descent still out-earns the bleed, so the skill is
+      // diving in the air and releasing to pump on the snow
+      if (s < 0) st.vx += -s * PUSH * (st.held ? 0.5 : 1) * dt;
       else st.vx += -s * PUSH * dt;
       st.vx += (13 - st.vx) * 0.5 * dt;
       // held on the snow — a carve, not a dive: friction bleeds speed
@@ -174,19 +220,100 @@ function step(st, dt) {
     }
   } else {
     st.vy -= g * dt;
+    // rotation catches air — the tuck bleeds fall speed toward a
+    // float, so a steep committed dive has room to come around
+    if (st.spinV > SPIN_GLIDE) st.vy += (-4 - st.vy) * Math.min(1, 10 * dt);
     st.y += st.vy * dt;
+    // hold to dive — a tap never throws. The flip wants the button
+    // held a beat, the dive committed (pitched past the board's max
+    // or falling fast), AND enough snow under the board to finish
+    // the rotation. Only a real launch gets all three; the snap
+    // back to level keeps the landing survivable.
+    if (st.held) st.holdAir += dt;
+    else st.holdAir = 0;
+    const committed =
+      -Math.atan2(st.vy, st.vx) > PITCH_MAX || st.vy < -24;
+    const canSpin =
+      (st.holdAir >= 0.3 &&
+        committed &&
+        st.y - hill(st.x, st.ph) > FLIP_ALT) ||
+      st.spin > 0;
+    if (st.held && canSpin) {
+      // the throw — a held key past the gate kicks the spin up
+      // instead of winding slowly from zero
+      if (st.spinV < SPIN_MAX * 0.6) st.spinV = SPIN_MAX * 0.6;
+      st.spinV += (SPIN_MAX - st.spinV) * Math.min(1, SPIN_RAMP * dt);
+    } else {
+      st.spinV += (0 - st.spinV) * Math.min(1, SPIN_OUT * dt);
+      // release swings the board to the nearest level — bail before
+      // halfway and the turn unwinds flat; commit past it and the
+      // roll carries through to the payout
+      const level = st.spin < Math.PI ? 0 : Math.PI * 2;
+      const rest = level - st.spin;
+      st.spin += Math.abs(rest) < 0.2 ? rest : rest * Math.min(1, SPIN_OUT * 0.6 * dt);
+    }
+    st.spin += st.spinV * dt;
+    if (st.spin >= Math.PI * 2) {
+      st.flips += 1; // count them — enough air chains into the next
+      st.spin = 0;
+      st.spinV = 0;
+      // nth flip pays n+1 seconds — chains snowball the reward
+      st.dayLen = Math.min(st.dayLen + st.flips + 1, st.t + RUN_LEN);
+      st.stoked = 0.8; // hands up — the flip paid out
+      st.hitstop = 0.12; // freeze a beat so the payout lands
+      st.fx = {
+        x: st.x,
+        y: st.y,
+        t: 0,
+        text: `+${st.flips + 1}s`,
+        kind: "flip",
+        stick: true,
+      };
+    }
     const y2 = hill(st.x, st.ph);
-    if (st.y <= y2) {
+    // body angle off the slope — spinning swings the head below the
+    // board. The head meeting snow is the only lethal touchdown; a
+    // rotated board touch just slaps you back up still turning —
+    // hold space to spin level and save it.
+    const tilt =
+      st.spin +
+      Math.max(-PITCH_MAX, Math.min(PITCH_MAX, -Math.atan2(st.vy, st.vx))) +
+      Math.atan(s);
+    const headLow = -HEAD_R * Math.cos(tilt); // head-tip reach below the board
+    const boardTip =
+      TIP_R * Math.abs(Math.sin(tilt)) + 0.1 * Math.cos(tilt);
+    const limbHit = headLow > boardTip && st.y - headLow <= y2;
+    if (limbHit || st.y <= y2) {
+      st.spinV *= 0.5; // contact eats half the rate, not the turn
       const s2 = slope(st.x, st.ph);
-      // wipeout — land badly mismatched to the slope and you slam.
-      // steep dives are fine mid-air; it's the landing angle that kills.
-      if (Math.abs(Math.atan2(st.vy, st.vx) - Math.atan(s2)) > 1.15) {
+      // board angle off the slope — a rotated touch is a slap, the
+      // rest is the usual landing math
+      const off = tilt - Math.round(tilt / (Math.PI * 2)) * Math.PI * 2;
+      if (limbHit) {
+        // head into the snow — the one lethal impact. Anything the
+        // board touches first is survivable: slap, bounce, or ride.
         st.ground = true;
         st.crashed = true;
-        st.death = "wiped out";
+        st.death = "head-first slam";
         st.over = true;
         st.y = y2;
-        st.fx = { x: st.x, y: st.y, t: 0, text: "slam!", kind: "bad" };
+        say({ x: st.x, y: st.y, t: 0, text: "slam!", kind: "bad" });
+      } else if (Math.abs(off) > FLIP_OK) {
+        // rotated contact — popped back up still turning; a held key
+        // can spin back level before the next touch. Each slap bleeds
+        // speed, and running out of it mid-rotation stalls the run
+        st.combo = 0;
+        st.y = Math.max(st.y, y2 + 0.2); // eject above the surface
+        st.vy = 7;
+        st.vx *= 0.9;
+        if (st.vx < 4) {
+          st.ground = true;
+          st.crashed = true;
+          st.death = "stalled out";
+          st.over = true;
+          st.y = y2;
+        }
+        say({ x: st.x, y: st.y, t: 0, text: "sketchy", kind: "bad" });
       } else if (s2 < -0.28) {
         st.ground = true;
         st.y = y2;
@@ -198,34 +325,40 @@ function step(st, dt) {
         // flight it took to arrive. The bank caps at the starting
         // 15s — income is only worth what mistakes already spent.
         st.dayLen = Math.min(
-          st.dayLen + (st.combo >= 3 ? 0.3 : 0.15) + (st.t - st.air) * 0.075,
+          st.dayLen + (st.combo >= 3 ? 0.2 : 0.1) + (st.t - st.air) * 0.1,
           st.t + RUN_LEN
         );
-        st.fx = {
+        say({
           x: st.x,
           y: st.y,
           t: 0,
           text: st.combo > 1 ? `perfect x${st.combo}` : "perfect!",
           kind: "good",
-        };
+        });
       } else if (s2 > 0.28) {
         st.ground = true;
         st.y = y2;
         st.vy = s2 * st.vx;
         st.combo = 0;
         st.vx += -s2 * 9;
-        st.fx = { x: st.x, y: st.y, t: 0, text: "rough", kind: "bad" };
+        say({ x: st.x, y: st.y, t: 0, text: "rough", kind: "bad" });
       } else if (st.vy < -7) {
         // flat landing with real impact — bounce instead of sliding
         st.combo = 0;
         st.vy = 5;
         st.vx *= 0.94;
-        st.fx = { x: st.x, y: st.y, t: 0, text: "bounce", kind: "bad" };
+        say({ x: st.x, y: st.y, t: 0, text: "bounce", kind: "bad" });
       } else {
         st.ground = true;
         st.y = y2;
         st.vy = s2 * st.vx;
         st.combo = 0;
+      }
+      // riding out banked flips starts a speed boost — longer the
+      // more rotations you brought down with you
+      if (st.ground && !st.crashed && st.flips > 0) {
+        st.boost = 2 + st.flips;
+        st.flips = 0;
       }
     }
   }
@@ -239,12 +372,20 @@ function step(st, dt) {
     if (py != null && (st.x - pn) ** 2 + (st.y + 1.2 - py) ** 2 < 1.7) {
       st.collected.add(pn);
       st.dayLen = Math.min(st.dayLen + 1, st.t + RUN_LEN);
-      st.fx = { x: pn, y: py, t: 0, text: "+1s", kind: "time" };
+      say({ x: pn, y: py, t: 0, text: "+1s", kind: "time" });
     }
   }
   if (st.fx && (st.fx.t += dt) > 0.9) st.fx = null;
+  if (st.stoked > 0) st.stoked -= dt; // hands come back down
+  // flip-landing boost — a few seconds of free acceleration and a
+  // higher ceiling while it burns
+  if (st.boost > 0) {
+    st.boost -= dt;
+    st.vx += 25 * dt;
+  }
   // fever — chained slides unlock a higher top speed
-  const vmax = st.combo >= 3 ? V_MAX + 8 : V_MAX;
+  const vmax =
+    (st.combo >= 3 ? V_MAX + 8 : V_MAX) + (st.boost > 0 ? 15 : 0);
   // carving can pull speed under the glide floor — that's the stall.
   // Release before it hits zero and the snow hands the glide back.
   const vmin = st.ground && st.held ? 0 : V_MIN;
@@ -294,7 +435,8 @@ function drawToken(ctx, x, y) {
 function draw(ctx, st, C, W, H, best) {
   const sx = W / VIEW_W;
   const sy = H / VIEW_H;
-  const anchorY = H * 0.62;
+  // rider parks high on screen — the slope below stays in view on big air
+  const anchorY = H * 0.45;
   const camX = st.x - LEAD;
   const ty = (h) => anchorY - (h - st.cam) * sy;
   ctx.clearRect(0, 0, W, H);
@@ -411,7 +553,24 @@ function draw(ctx, st, C, W, H, best) {
     ? -Math.atan(slope(st.x, st.ph)) + 1.35 // ragdoll flat against the slope
     : st.ground
       ? -Math.atan(slope(st.x, st.ph))
-      : Math.max(-1.15, Math.min(1.15, -Math.atan2(st.vy, st.vx)));
+      : Math.max(-1.15, Math.min(1.15, -Math.atan2(st.vy, st.vx))) +
+        st.spin; // front flip — clockwise spin rides the flight path
+  // spin ghosts — the deck leaves afterimages while the flip is fast
+  if (!st.ground && !st.crashed && st.spinV > 3) {
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.fillStyle = C.accent;
+    for (let k = 1; k <= 2; k++) {
+      ctx.save();
+      ctx.rotate(ang - st.spinV * 0.05 * k);
+      ctx.globalAlpha = 0.22 / k;
+      ctx.beginPath();
+      ctx.roundRect(-17, -3.5, 34, 3.5, 1.75);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
   ctx.save();
   ctx.translate(px, py);
   ctx.rotate(ang);
@@ -435,34 +594,61 @@ function draw(ctx, st, C, W, H, best) {
     ctx.lineTo(bx, -4);
     ctx.stroke();
   };
-  leg(4, -7, 6); // front leg, knee forward
-  leg(-5, -6.5, -6); // back leg
+  const ARM = 13; // shoulder→hand reach — same in every pose
+  const arm = (sx, sy, hx, hy) => {
+    const d = Math.hypot(hx - sx, hy - sy) || 1;
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + ((hx - sx) * ARM) / d, sy + ((hy - sy) * ARM) / d);
+  };
+  // ball up whenever the rider isn't level — fast spin or a tumbled
+  // recovery both read better tucked than sprawled
+  const tucked =
+    !st.ground &&
+    !st.crashed &&
+    (st.spinV > 2.5 ||
+      Math.abs(
+        st.spin - Math.round(st.spin / (Math.PI * 2)) * Math.PI * 2
+      ) > FLIP_OK);
+  // held without the spin — the speed crouch: hips and chest fold
+  // down like a carve, both hands come to the deck
+  const diving = st.held && !st.crashed && !tucked;
+  const sh = tucked ? [4.5, -16.5] : diving ? [4, -14.5] : [3, -19];
+  if (tucked) {
+    // balled up for the spin — knees pulled to chest
+    leg(5, -13.5, 4);
+    leg(-4, -13, -4);
+  } else {
+    leg(4, -7, 6); // front leg, knee forward
+    leg(-5, -6.5, -6); // back leg
+  }
   ctx.beginPath(); // torso, leaning into the ride
   ctx.moveTo(-1, -11);
-  ctx.lineTo(3, -19);
+  ctx.lineTo(sh[0], sh[1]);
   ctx.stroke();
   ctx.beginPath(); // head
-  ctx.arc(4.5, -22.5, 3, 0, Math.PI * 2);
+  const hc = tucked ? [6.5, -19.5] : diving ? [5.5, -18] : [4.5, -22.5];
+  ctx.arc(hc[0], hc[1], 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath(); // arms
-  if (!st.ground && st.held && !st.crashed) {
-    // dive — reach down and grab the nose
-    ctx.moveTo(3, -19);
-    ctx.lineTo(9, -4.5);
-    ctx.moveTo(3, -19);
-    ctx.lineTo(-8, -15);
+  if ((st.stoked > 0 || tucked) && !st.crashed) {
+    // hands up — through the rotation and the ride-out
+    arm(sh[0], sh[1], sh[0] + 6, sh[1] - 9);
+    arm(sh[0], sh[1], sh[0] - 6, sh[1] - 8);
+  } else if (diving) {
+    // speed crouch — only the lead hand reaches for the deck, the
+    // trailing arm swings back for balance
+    ctx.moveTo(sh[0], sh[1]);
+    ctx.lineTo(6.5, -8.5);
+    ctx.lineTo(10, -3.4);
+    arm(sh[0], sh[1], -7, -18);
   } else if (!st.ground || st.crashed) {
     // airborne or sprawled on the snow — arms out
-    ctx.moveTo(3, -19);
-    ctx.lineTo(11, -15);
-    ctx.moveTo(3, -19);
-    ctx.lineTo(-9, -16);
+    arm(3, -19, 11, -15);
+    arm(3, -19, -9, -16);
   } else {
     // cruising — relaxed tuck, trailing arm
-    ctx.moveTo(3, -19);
-    ctx.lineTo(8, -14);
-    ctx.moveTo(3, -19);
-    ctx.lineTo(-7, -13);
+    arm(3, -19, 8, -14);
+    arm(3, -19, -7, -13);
   }
   ctx.stroke();
   ctx.restore();
@@ -473,13 +659,17 @@ function draw(ctx, st, C, W, H, best) {
     const a = 1 - st.fx.t / 0.9;
     ctx.globalAlpha = Math.max(0, a);
     ctx.fillStyle =
-      st.fx.kind === "good" ? C.accent : st.fx.kind === "time" ? C.accent2 : C.dim;
-    ctx.font = `bold 13px ${FONT}`;
+      st.fx.kind === "good"
+        ? C.accent
+        : st.fx.kind === "time" || st.fx.kind === "flip"
+          ? C.accent2
+          : C.dim;
+    ctx.font = `bold ${st.fx.kind === "flip" ? 17 : 13}px ${FONT}`;
     ctx.textAlign = "center";
     ctx.fillText(
       st.fx.text,
-      (st.fx.x - camX) * sx,
-      ty(st.fx.y) - 14 - st.fx.t * 26
+      st.fx.stick ? px : (st.fx.x - camX) * sx,
+      st.fx.stick ? py - 34 - st.fx.t * 24 : ty(st.fx.y) - 14 - st.fx.t * 26
     );
     ctx.globalAlpha = 1;
     ctx.textAlign = "left";

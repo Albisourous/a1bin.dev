@@ -111,10 +111,10 @@ export default function App() {
       240,
       window.innerWidth - 44 - explorerW - (chatOpen ? chatW : 0) - 240
     );
-  // Chat and terminal start closed on mobile: editor gets the screen.
-  // On desktop the terminal stays open — the prompt is part of the
-  // landing view.
-  const [chatOpen, setChatOpen] = useState(() => !startsMobile());
+  // Chat starts closed everywhere — the status-bar icon opens it.
+  // Terminal starts closed on mobile: editor gets the screen. On
+  // desktop it stays open — the prompt is part of the landing view.
+  const [chatOpen, setChatOpen] = useState(false);
   const [termOpen, setTermOpen] = useState(() => !startsMobile());
   // Mobile has no explorer column — the icon toggles a drawer instead.
   const [explorerOpen, setExplorerOpen] = useState(false);
